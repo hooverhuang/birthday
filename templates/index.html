@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>壽星陰謀卡牌遊戲 - 地牢戰鬥版</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: #e0e0e0;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .game-container {
+      position: relative;
+      min-height: 100vh;
+      background: 
+        radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 40% 80%, rgba(120, 219, 255, 0.2) 0%, transparent 50%);
+    }
+
+    /* 頂部狀態欄 */
+    .top-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 80px;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      border-bottom: 2px solid #4a4a4a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 1000;
+    }
+
+    .player-info {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .player-name {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #ffd700;
+      text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    }
+
+    .health-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .health-icon {
+      color: #ff4444;
+      font-size: 1.5rem;
+    }
+
+    .health-text {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #ff4444;
+    }
+
+    .gold-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .gold-icon {
+      color: #ffd700;
+      font-size: 1.5rem;
+    }
+
+    .gold-text {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #ffd700;
+    }
+
+    .energy-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .energy-icon {
+      color: #00ff88;
+      font-size: 1.5rem;
+    }
+
+    .energy-text {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #00ff88;
+    }
+
+    .connection-status {
+      position: fixed;
+      top: 90px;
+      right: 20px;
+      padding: 10px 15px;
+      border-radius: 5px;
+      font-size: 0.9rem;
+      z-index: 999;
+    }
+
+    .connected {
+      background: rgba(0, 255, 0, 0.2);
+      color: #00ff00;
+      border: 1px solid #00ff00;
+    }
+
+    .disconnected {
+      background: rgba(255, 0, 0, 0.2);
+      color: #ff0000;
+      border: 1px solid #ff0000;
+    }
+
+    /* 主遊戲區域 */
+    .main-game-area {
+      margin-top: 80px;
+      padding: 20px;
+      min-height: calc(100vh - 80px);
+    }
+
+    /* 地牢背景 */
+    .dungeon-background {
+      position: relative;
+      background: 
+        linear-gradient(45deg, #2c1810 0%, #1a0f0a 100%),
+        url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="brick" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><rect width="20" height="20" fill="%23333"/><rect width="20" height="4" fill="%23555"/><rect width="4" height="20" fill="%23555"/></pattern></defs><rect width="100" height="100" fill="url(%23brick)"/></svg>');
+      border-radius: 15px;
+      padding: 30px;
+      margin: 20px 0;
+      box-shadow: 
+        inset 0 0 50px rgba(0, 0, 0, 0.5),
+        0 0 30px rgba(255, 0, 0, 0.1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .dungeon-background::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: 
+        radial-gradient(circle at 30% 20%, rgba(255, 100, 100, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 70% 80%, rgba(100, 100, 255, 0.1) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    /* 戰鬥區域 */
+    .battle-area {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      min-height: 400px;
+      margin: 30px 0;
+    }
+
+    /* 玩家區域 */
+    .player-side {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .player-character {
+      background: linear-gradient(145deg, #4a4a4a 0%, #3a3a3a 100%);
+      border: 3px solid #6a6a6a;
+      border-radius: 20px;
+      padding: 25px;
+      text-align: center;
+      position: relative;
+      min-width: 200px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    }
+
+    .player-character.current-turn {
+      border-color: #ff6b6b;
+      background: linear-gradient(145deg, #5a3a3a 0%, #4a2a2a 100%);
+      box-shadow: 0 0 30px rgba(255, 107, 107, 0.4);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .character-avatar {
+      font-size: 4rem;
+      margin-bottom: 15px;
+      text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+    }
+
+    .character-name {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #ffd700;
+      margin-bottom: 10px;
+    }
+
+    .character-health {
+      font-size: 1.2rem;
+      color: #ff4444;
+      font-weight: bold;
+    }
+
+    .character-cards {
+      font-size: 0.9rem;
+      color: #4a9eff;
+      margin-top: 5px;
+    }
+
+    /* 敵人區域 - 其他玩家 */
+    .enemy-side {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      padding: 20px;
+    }
+
+    .enemy-player {
+      background: linear-gradient(145deg, #3a2a2a 0%, #2a1a1a 100%);
+      border: 2px solid #5a3a3a;
+      border-radius: 15px;
+      padding: 20px;
+      text-align: center;
+      position: relative;
+      transition: all 0.3s ease;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .enemy-player:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 25px rgba(255, 0, 0, 0.2);
+    }
+
+    .enemy-player.current-turn {
+      border-color: #ff6b6b;
+      background: linear-gradient(145deg, #4a2a2a 0%, #3a1a1a 100%);
+      box-shadow: 0 0 20px rgba(255, 68, 68, 0.4);
+      animation: enemyAttack 0.5s ease-in-out;
+    }
+
+    @keyframes enemyAttack {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    .enemy-avatar {
+      font-size: 3rem;
+      margin-bottom: 10px;
+      text-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+    }
+
+    .enemy-name {
+      font-size: 1rem;
+      font-weight: bold;
+      color: #ff6666;
+      margin-bottom: 8px;
+    }
+
+    .enemy-health {
+      font-size: 1rem;
+      color: #ff4444;
+      font-weight: bold;
+    }
+
+    .enemy-cards {
+      font-size: 0.8rem;
+      color: #888;
+      margin-top: 5px;
+    }
+
+    .enemy-status {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      background: #ff4444;
+      color: white;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.8rem;
+    }
+
+    /* 手牌區域 */
+    .hand-area {
+      background: rgba(0, 0, 0, 0.8);
+      border-radius: 15px;
+      padding: 30px;
+      margin: 20px 0;
+      border: 2px solid #4a4a4a;
+      display: none;
+    }
+
+    .hand-area.show {
+      display: block;
+      animation: slideInUp 0.5s ease-out;
+    }
+
+    @keyframes slideInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .hand-title {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #ffd700;
+      margin-bottom: 25px;
+      text-align: center;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 25px;
+      justify-items: center;
+    }
+
+    .card {
+      background: linear-gradient(145deg, #3a3a3a 0%, #2a2a2a 100%);
+      border: 3px solid #5a5a5a;
+      border-radius: 15px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      text-align: center;
+      min-height: 400px;
+      width: 280px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+      overflow: hidden;
+      padding: 15px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .card:hover {
+      transform: translateY(-15px) scale(1.08);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      border-color: #ffd700;
+    }
+
+    .card.selected {
+      border-color: #ff6b6b;
+      background: linear-gradient(145deg, #4a2a2a 0%, #3a1a1a 100%);
+      box-shadow: 0 0 30px rgba(255, 107, 107, 0.6);
+      transform: translateY(-15px) scale(1.08);
+    }
+
+    .card-cost {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: #ff4444;
+      color: white;
+      border-radius: 50%;
+      width: 35px;
+      height: 35px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 1.1rem;
+      z-index: 2;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-image {
+      width: 100%;
+      height: 280px;
+      object-fit: contain;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      background: rgba(0, 0, 0, 0.2);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .card-name {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #e0e0e0;
+      margin-bottom: 10px;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    }
+
+    .card-type {
+      font-size: 0.9rem;
+      color: #888;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* 卡片放大模態框 */
+    .card-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+      backdrop-filter: blur(5px);
+    }
+
+    .card-modal.show {
+      display: flex;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    .card-modal-content {
+      background: linear-gradient(145deg, #3a3a3a 0%, #2a2a2a 100%);
+      border: 4px solid #ffd700;
+      border-radius: 20px;
+      padding: 30px;
+      text-align: center;
+      position: relative;
+      max-width: 50vw;
+      max-height: 80vh;
+      width: 600px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+      animation: scaleIn 0.3s ease-out;
+    }
+
+    @keyframes scaleIn {
+      from {
+        transform: scale(0.8);
+        opacity: 0;
+      }
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .card-modal-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: #ff4444;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      font-size: 1.2rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      z-index: 2001;
+    }
+
+    .card-modal-close:hover {
+      background: #ff6666;
+      transform: scale(1.1);
+    }
+
+    .card-modal-image {
+      width: 100%;
+      height: 400px;
+      object-fit: contain;
+      border-radius: 15px;
+      margin-bottom: 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 3px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .card-modal-name {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #ffd700;
+      margin-bottom: 15px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    .card-modal-type {
+      font-size: 1.2rem;
+      color: #888;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      display: inline-block;
+    }
+
+    .card-modal-cost {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: #ff4444;
+      color: white;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 1.5rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    /* 遊戲控制區域 */
+    .game-controls {
+      background: rgba(0, 0, 0, 0.8);
+      border-radius: 15px;
+      padding: 25px;
+      margin: 20px 0;
+      border: 2px solid #4a4a4a;
+    }
+
+    .controls-title {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #ffd700;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .form-group {
+      margin: 15px 0;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: #e0e0e0;
+    }
+
+    .form-group select {
+      width: 100%;
+      padding: 12px;
+      background: #2a2a2a;
+      border: 2px solid #4a4a4a;
+      border-radius: 8px;
+      color: #e0e0e0;
+      font-size: 1rem;
+    }
+
+    .form-group select:focus {
+      outline: none;
+      border-color: #ffd700;
+      box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+    }
+
+    .btn {
+      background: linear-gradient(145deg, #4a4a4a 0%, #3a3a3a 100%);
+      color: #e0e0e0;
+      padding: 12px 25px;
+      border: 2px solid #5a5a5a;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: bold;
+      margin: 5px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn:hover {
+      background: linear-gradient(145deg, #5a5a5a 0%, #4a4a4a 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn:disabled {
+      background: #2a2a2a;
+      color: #666;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(145deg, #4a9eff 0%, #3a8eef 100%);
+      border-color: #5aaeff;
+    }
+
+    .btn-success {
+      background: linear-gradient(145deg, #00ff88 0%, #00ee77 100%);
+      border-color: #11ff99;
+      color: #000;
+    }
+
+    .btn-danger {
+      background: linear-gradient(145deg, #ff4444 0%, #ee3333 100%);
+      border-color: #ff5555;
+    }
+
+    /* 回合指示器 */
+    .turn-indicator {
+      background: linear-gradient(145deg, #3a2a2a 0%, #2a1a1a 100%);
+      border: 2px solid #ff6b6b;
+      border-radius: 10px;
+      padding: 15px;
+      margin: 20px 0;
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #ff6b6b;
+      box-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
+      animation: pulse 2s infinite;
+    }
+
+    /* 遊戲日誌 */
+    .log-section {
+      background: rgba(0, 0, 0, 0.8);
+      border-radius: 15px;
+      padding: 20px;
+      margin: 20px 0;
+      border: 2px solid #4a4a4a;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .log-title {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #ffd700;
+      margin-bottom: 15px;
+    }
+
+    .log-entry {
+      padding: 8px 0;
+      border-bottom: 1px solid #333;
+      color: #e0e0e0;
+      font-size: 0.9rem;
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    /* 加入遊戲表單 */
+    .join-form {
+      background: rgba(0, 0, 0, 0.9);
+      border-radius: 20px;
+      padding: 40px;
+      margin: 50px auto;
+      max-width: 500px;
+      text-align: center;
+      border: 2px solid #4a4a4a;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .join-form h2 {
+      font-size: 2rem;
+      color: #ffd700;
+      margin-bottom: 30px;
+      text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 15px;
+      background: #2a2a2a;
+      border: 2px solid #4a4a4a;
+      border-radius: 8px;
+      color: #e0e0e0;
+      font-size: 1.1rem;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #ffd700;
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+    }
+
+    /* 隱藏元素 */
+    .hidden {
+      display: none !important;
+    }
+
+    /* 響應式設計 */
+    @media (max-width: 768px) {
+      .top-bar {
+        padding: 0 10px;
+        height: 60px;
+      }
+      
+      .main-game-area {
+        margin-top: 60px;
+        padding: 10px;
+      }
+      
+      .battle-area {
+        flex-direction: column;
+        gap: 30px;
+      }
+      
+      .enemy-side {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+      }
+      
+      .cards-grid {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      }
+      
+      .card {
+        width: 250px;
+        min-height: 350px;
+      }
+      
+      .card-image {
+        height: 220px;
+      }
+
+      .card-modal-content {
+        max-width: 90vw;
+        width: 350px;
+        padding: 20px;
+      }
+
+      .card-modal-image {
+        height: 250px;
+      }
+
+      .card-modal-name {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <!-- 頂部狀態欄 -->
+    <div class="top-bar">
+      <div class="player-info">
+        <div class="player-name" id="playerNameDisplay">等待加入...</div>
+        <div class="health-bar">
+          <i class="fas fa-heart health-icon"></i>
+          <span class="health-text" id="playerHealth">100/100</span>
+        </div>
+        <div class="gold-info">
+          <i class="fas fa-coins gold-icon"></i>
+          <span class="gold-text" id="playerGold">0</span>
+        </div>
+        <div class="energy-info">
+          <i class="fas fa-bolt energy-icon"></i>
+          <span class="energy-text" id="playerEnergy">3/3</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="connectionStatus" class="connection-status disconnected">
+      <i class="fas fa-wifi"></i> 連線中...
+    </div>
+
+    <!-- 加入遊戲表單 -->
+    <div id="joinForm" class="join-form">
+      <h2><i class="fas fa-dungeon"></i> 進入地牢</h2>
+      <div class="form-group">
+        <label for="playerName">選擇你的冒險者名稱</label>
+        <input type="text" id="playerName" placeholder="輸入冒險者名稱" maxlength="10">
+      </div>
+      <button class="btn btn-success" onclick="joinGame()">
+        <i class="fas fa-play"></i> 開始冒險
+      </button>
+    </div>
+
+    <!-- 主遊戲區域 -->
+    <div id="gameArea" class="main-game-area hidden">
+      <div class="dungeon-background">
+        <h2 style="text-align: center; color: #ffd700; margin-bottom: 30px; font-size: 2rem;">
+          <i class="fas fa-skull-crossbones"></i> 壽星陰謀大戰
+        </h2>
+
+        <div id="turnIndicator" class="turn-indicator" style="display: none;">
+          <i class="fas fa-clock"></i> 輪到：<span id="currentTurnPlayer"></span>
+        </div>
+
+        <!-- 戰鬥區域 -->
+        <div class="battle-area">
+          <!-- 玩家區域 -->
+          <div class="player-side">
+            <div id="playerCharacter" class="player-character">
+              <div class="character-avatar">🛡️</div>
+              <div class="character-name" id="playerCharacterName">等待加入...</div>
+              <div class="character-health" id="playerCharacterHealth">100/100</div>
+              <div class="character-cards" id="playerCharacterCards">0 張手牌</div>
+            </div>
+          </div>
+
+          <!-- 敵人區域 - 其他玩家 -->
+          <div class="enemy-side" id="enemyPlayers">
+            <!-- 其他玩家會動態顯示在這裡 -->
+          </div>
+        </div>
+
+        <!-- 我的手牌 -->
+        <div id="myCardsArea" class="hand-area">
+          <h3 class="hand-title">
+            <i class="fas fa-hand-paper"></i> 我的手牌
+          </h3>
+          <div class="cards-grid" id="myCards"></div>
+        </div>
+
+        <div class="game-controls">
+          <h3 class="controls-title">
+            <i class="fas fa-sword"></i> 選擇行動
+          </h3>
+          
+          <div class="form-group">
+            <label for="target">選擇目標</label>
+            <select id="target">
+              <option value="">無目標</option>
+            </select>
+          </div>
+
+          <button class="btn btn-primary" id="playButton" onclick="playCard()" disabled>
+            <i class="fas fa-dice"></i> 出牌
+          </button>
+          <button class="btn btn-success" id="startButton" onclick="startGame()" style="display: none;">
+            <i class="fas fa-rocket"></i> 開始戰鬥
+          </button>
+        </div>
+
+        <div class="log-section">
+          <h3 class="log-title">
+            <i class="fas fa-scroll"></i> 戰鬥日誌
+          </h3>
+          <div id="log" class="log-section">
+            <div class="log-entry">🎮 等待戰鬥開始...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 卡片放大模態框 -->
+  <div id="cardModal" class="card-modal">
+    <div class="card-modal-content">
+      <button class="card-modal-close" onclick="closeCardModal()">
+        <i class="fas fa-times"></i>
+      </button>
+      <div class="card-modal-cost" id="modalCardCost">1</div>
+      <img id="modalCardImage" class="card-modal-image" src="" alt="">
+      <div class="card-modal-name" id="modalCardName"></div>
+      <div class="card-modal-type" id="modalCardType">技能</div>
+    </div>
+  </div>
+
+  <script>
+    let socket = io();
+    let currentPlayer = null;
+    let selectedCard = null;
+    let gameData = null;
+    let myPlayerName = null;
+    let myCards = [];
+
+    // 卡牌圖片映射 - 使用 Flask 靜態文件路徑
+    const cardImages = {
+      " 狙擊手": "/static/images/jaspor.jpeg",
+      " 贈禮者": "/static/images/larry.jpeg"
+    };
+
+    // 連線狀態
+    socket.on('connect', function() {
+      document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-wifi"></i> ✅ 已連線';
+      document.getElementById('connectionStatus').className = 'connection-status connected';
+    });
+
+    socket.on('disconnect', function() {
+      document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-wifi-slash"></i> ❌ 連線中斷';
+      document.getElementById('connectionStatus').className = 'connection-status disconnected';
+    });
+
+    // 加入遊戲
+    socket.on('player_joined', function(data) {
+      console.log('玩家加入:', data.player);
+      updateGameState();
+    });
+
+    // 玩家離開
+    socket.on('player_left', function(data) {
+      console.log('玩家離開:', data.player);
+      updateGameState();
+    });
+
+    // 遊戲開始
+    socket.on('game_started', function(data) {
+      console.log('遊戲開始:', data.message);
+      document.getElementById('startButton').style.display = 'none';
+      loadMyCards();
+    });
+
+    // 遊戲狀態更新
+    socket.on('game_state', function(data) {
+      console.log('遊戲狀態更新:', data);
+      gameData = data;
+      updateGameState();
+      displayLogs(data.logs);
+      updateTurnIndicator(data.current_turn);
+    });
+
+    // 我的卡片
+    socket.on('my_cards', function(data) {
+      console.log('我的卡片:', data.cards);
+      myCards = data.cards;
+      displayMyCards();
+    });
+
+    // 錯誤處理
+    socket.on('error', function(data) {
+      showNotification(data.message, 'error');
+    });
+
+    // 顯示通知
+    function showNotification(message, type = 'info') {
+      const notification = document.createElement('div');
+      notification.className = `connection-status ${type === 'error' ? 'disconnected' : 'connected'}`;
+      notification.innerHTML = `<i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i> ${message}`;
+      notification.style.position = 'fixed';
+      notification.style.top = '100px';
+      notification.style.right = '20px';
+      notification.style.zIndex = '1000';
+      notification.style.maxWidth = '300px';
+      
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.remove();
+      }, 3000);
+    }
+
+    // 加入遊戲
+    function joinGame() {
+      const playerName = document.getElementById('playerName').value.trim();
+      if (!playerName) {
+        showNotification('請輸入冒險者名稱', 'error');
+        return;
+      }
+      
+      myPlayerName = playerName;
+      document.getElementById('playerNameDisplay').textContent = playerName;
+      document.getElementById('playerCharacterName').textContent = playerName;
+      socket.emit('join_game', { player_name: playerName });
+      
+      // 隱藏加入表單，顯示遊戲區域
+      document.getElementById('joinForm').classList.add('hidden');
+      document.getElementById('gameArea').classList.remove('hidden');
+    }
+
+    // 開始遊戲
+    function startGame() {
+      socket.emit('start_game');
+    }
+
+    // 載入我的卡片
+    function loadMyCards() {
+      if (myPlayerName) {
+        socket.emit('get_my_cards', { player: myPlayerName });
+      }
+    }
+
+    // 更新遊戲狀態
+    function updateGameState() {
+      if (!gameData) return;
+      
+      // 更新玩家角色信息
+      if (myPlayerName && gameData.players[myPlayerName]) {
+        const playerInfo = gameData.players[myPlayerName];
+        document.getElementById('playerCharacterName').textContent = myPlayerName;
+        document.getElementById('playerCharacterHealth').textContent = `${playerInfo.score}/100`;
+        document.getElementById('playerCharacterCards').textContent = `${playerInfo.roles.length} 張手牌`;
+        document.getElementById('playerHealth').textContent = `${playerInfo.score}/100`;
+        
+        // 更新玩家角色狀態
+        const playerCharacter = document.getElementById('playerCharacter');
+        if (gameData.current_turn === myPlayerName) {
+          playerCharacter.classList.add('current-turn');
+        } else {
+          playerCharacter.classList.remove('current-turn');
+        }
+      }
+      
+      // 更新敵人區域 - 顯示其他玩家
+      updateEnemyPlayers();
+      
+      // 更新目標選項
+      updateTargetOptions();
+      
+      // 顯示開始按鈕
+      if (!gameData.game_started && Object.keys(gameData.players).length >= 2) {
+        document.getElementById('startButton').style.display = 'inline-block';
+      }
+    }
+
+    // 更新敵人玩家顯示
+    function updateEnemyPlayers() {
+      const enemyPlayersDiv = document.getElementById('enemyPlayers');
+      let html = "";
+      
+      if (gameData) {
+        for (const [playerName, playerInfo] of Object.entries(gameData.players)) {
+          if (playerName !== myPlayerName) {
+            const isCurrentTurn = playerName === gameData.current_turn;
+            const avatars = ['', '🧌', '', '', '', '', '', '👽'];
+            const randomAvatar = avatars[playerName.length % avatars.length];
+            
+            html += `
+              <div class="enemy-player ${isCurrentTurn ? 'current-turn' : ''}">
+                <div class="enemy-avatar">${randomAvatar}</div>
+                <div class="enemy-name">${playerName}</div>
+                <div class="enemy-health">${playerInfo.score}/100</div>
+                <div class="enemy-cards">${playerInfo.roles.length} 張手牌</div>
+                ${isCurrentTurn ? '<div class="enemy-status">⚔️</div>' : ''}
+              </div>
+            `;
+          }
+        }
+      }
+      
+      enemyPlayersDiv.innerHTML = html;
+    }
+
+    // 更新目標選項
+    function updateTargetOptions() {
+      const targetSelect = document.getElementById('target');
+      targetSelect.innerHTML = '<option value="">無目標</option>';
+      
+      if (gameData) {
+        for (const player of Object.keys(gameData.players)) {
+          if (player !== myPlayerName) {
+            targetSelect.innerHTML += `<option value="${player}">${player}</option>`;
+          }
+        }
+      }
+    }
+
+    // 顯示我的卡片
+    function displayMyCards() {
+      const myCardsArea = document.getElementById('myCardsArea');
+      const myCardsDiv = document.getElementById('myCards');
+      
+      if (myCards.length > 0) {
+        myCardsArea.classList.add('show');
+        let html = "";
+        
+        myCards.forEach((card, index) => {
+          const hasImage = cardImages[card];
+          html += `
+            <div class="card" onclick="selectCard('${card}', this)" oncontextmenu="showCardModal('${card}', event)" data-role="${card}">
+              <div class="card-cost">1</div>
+              ${hasImage ? `<img src="${hasImage}" alt="${card}" class="card-image">` : ''}
+              <div class="card-name">${card}</div>
+              <div class="card-type">技能</div>
+            </div>
+          `;
+        });
+        
+        myCardsDiv.innerHTML = html;
+      } else {
+        myCardsArea.classList.remove('show');
+      }
+    }
+
+    // 選擇卡片
+    function selectCard(role, element) {
+      // 移除所有選中狀態
+      document.querySelectorAll('.card').forEach(card => {
+        card.classList.remove('selected');
+      });
+      
+      // 選中當前卡片
+      element.classList.add('selected');
+      selectedCard = role;
+      
+      console.log("選擇卡片:", role);
+    }
+
+    // 顯示卡片放大模態框
+    function showCardModal(role, event) {
+      event.preventDefault(); // 防止右鍵菜單
+      
+      const modal = document.getElementById('cardModal');
+      const modalImage = document.getElementById('modalCardImage');
+      const modalName = document.getElementById('modalCardName');
+      const modalType = document.getElementById('modalCardType');
+      const modalCost = document.getElementById('modalCardCost');
+      
+      // 設置模態框內容
+      modalName.textContent = role;
+      modalType.textContent = '技能';
+      modalCost.textContent = '1';
+      
+      // 設置圖片
+      const hasImage = cardImages[role];
+      if (hasImage) {
+        modalImage.src = hasImage;
+        modalImage.style.display = 'block';
+      } else {
+        modalImage.style.display = 'none';
+      }
+      
+      // 顯示模態框
+      modal.classList.add('show');
+      
+      // 防止背景滾動
+      document.body.style.overflow = 'hidden';
+    }
+
+    // 關閉卡片放大模態框
+    function closeCardModal() {
+      const modal = document.getElementById('cardModal');
+      modal.classList.remove('show');
+      
+      // 恢復背景滾動
+      document.body.style.overflow = 'auto';
+    }
+
+    // 點擊模態框背景關閉
+    document.getElementById('cardModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeCardModal();
+      }
+    });
+
+    // ESC 鍵關閉模態框
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeCardModal();
+      }
+    });
+
+    // 更新回合指示器
+    function updateTurnIndicator(currentTurn) {
+      const turnIndicator = document.getElementById('turnIndicator');
+      const currentTurnPlayer = document.getElementById('currentTurnPlayer');
+      const playButton = document.getElementById('playButton');
+      
+      if (currentTurn) {
+        turnIndicator.style.display = 'block';
+        currentTurnPlayer.textContent = currentTurn;
+        
+        // 檢查是否輪到我
+        if (currentTurn === myPlayerName) {
+          playButton.disabled = false;
+          playButton.innerHTML = '<i class="fas fa-dice"></i> 輪到你出牌！';
+          loadMyCards();
+        } else {
+          playButton.disabled = true;
+          playButton.innerHTML = '<i class="fas fa-clock"></i> 等待其他玩家...';
+        }
+      }
+    }
+
+    // 顯示遊戲日誌
+    function displayLogs(logs) {
+      const logDiv = document.getElementById("log");
+      if (logs && logs.length > 0) {
+        let html = "";
+        logs.forEach(log => {
+          html += `<div class="log-entry">⚔️ ${log}</div>`;
+        });
+        logDiv.innerHTML = html;
+        logDiv.scrollTop = logDiv.scrollHeight;
+      } else {
+        logDiv.innerHTML = "<div class='log-entry'> 等待戰鬥開始...</div>";
+      }
+    }
+
+    // 出牌
+    function playCard() {
+      const target = document.getElementById("target").value;
+
+      if (!selectedCard) {
+        showNotification("請選擇要出的卡片！", 'error');
+        return;
+      }
+
+      console.log("出牌:", { player: myPlayerName, role: selectedCard, target });
+
+      // 檢查是否需要目標
+      if ((selectedCard === " 狙擊手" || selectedCard === " 贈禮者") && !target) {
+        showNotification("此角色需要選擇目標！", 'error');
+        return;
+      }
+
+      // 發送給服務器
+      socket.emit('play_card', {
+        player: myPlayerName,
+        role: selectedCard,
+        target: target || null
+      });
+      
+      // 清除選擇
+      selectedCard = null;
+      document.querySelectorAll('.card').forEach(card => {
+        card.classList.remove('selected');
+      });
+    }
+
+    // 頁面載入時初始化
+    window.onload = function() {
+      // 自動連線
+    };
+  </script>
+</body>
+</html>

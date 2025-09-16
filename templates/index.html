@@ -1,3 +1,4 @@
+<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -6,1252 +7,1070 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Courier New', monospace;
       background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-      color: #e0e0e0;
-      min-height: 100vh;
-      overflow-x: hidden;
+      color: #e0e0e0; min-height: 100vh; overflow-x: hidden;
     }
+    .game-container { position: relative; min-height: 100vh; padding: 20px; }
 
-    .game-container {
-      position: relative;
-      min-height: 100vh;
-      background: 
-        radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
-        radial-gradient(circle at 40% 80%, rgba(120, 219, 255, 0.2) 0%, transparent 50%);
-    }
-
-    /* 頂部狀態欄 */
     .top-bar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 80px;
-      background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(10px);
-      border-bottom: 2px solid #4a4a4a;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 20px;
-      z-index: 1000;
+      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(0, 0, 0, 0.8); padding: 15px 30px; border-radius: 15px;
+      margin-bottom: 20px; border: 2px solid #ff6b6b; box-shadow: 0 0 20px rgba(255,107,107,0.3);
     }
-
-    .player-info {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-
-    .player-name {
-      font-size: 1.2rem;
-      font-weight: bold;
-      color: #ffd700;
-      text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
-    }
-
-    .health-bar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .health-icon {
-      color: #ff4444;
-      font-size: 1.5rem;
-    }
-
-    .health-text {
-      font-size: 1.1rem;
-      font-weight: bold;
-      color: #ff4444;
-    }
-
-    .gold-info {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .gold-icon {
-      color: #ffd700;
-      font-size: 1.5rem;
-    }
-
-    .gold-text {
-      font-size: 1.1rem;
-      font-weight: bold;
-      color: #ffd700;
-    }
-
-    .energy-info {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .energy-icon {
-      color: #00ff88;
-      font-size: 1.5rem;
-    }
-
-    .energy-text {
-      font-size: 1.1rem;
-      font-weight: bold;
-      color: #00ff88;
-    }
+    .stat { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: bold; }
+    .stat i { color: #ff6b6b; font-size: 24px; }
 
     .connection-status {
-      position: fixed;
-      top: 90px;
-      right: 20px;
-      padding: 10px 15px;
-      border-radius: 5px;
-      font-size: 0.9rem;
-      z-index: 999;
+      position: fixed; top: 20px; right: 20px; padding: 10px 20px; border-radius: 25px; font-weight: bold; z-index: 1000;
     }
+    .connected { background: rgba(76,175,80,0.9); color: white; }
+    .disconnected { background: rgba(244,67,54,0.9); color: white; }
 
-    .connected {
-      background: rgba(0, 255, 0, 0.2);
-      color: #00ff00;
-      border: 1px solid #00ff00;
+    .join-form {
+      text-align: center; background: rgba(0,0,0,0.7); padding: 40px; border-radius: 20px; margin: 50px auto; max-width: 500px;
+      border: 2px solid #4caf50; box-shadow: 0 0 30px rgba(76,175,80,0.3);
     }
-
-    .disconnected {
-      background: rgba(255, 0, 0, 0.2);
-      color: #ff0000;
-      border: 1px solid #ff0000;
+    .join-form h2 { color: #4caf50; margin-bottom: 30px; font-size: 28px; }
+    .join-form input {
+      width: 100%; padding: 15px; font-size: 18px; border: 2px solid #4caf50; border-radius: 10px;
+      background: rgba(0,0,0,0.5); color: white; margin-bottom: 20px;
     }
-
-    /* 主遊戲區域 */
-    .main-game-area {
-      margin-top: 80px;
-      padding: 20px;
-      min-height: calc(100vh - 80px);
+    .join-form button {
+      background: linear-gradient(45deg, #4caf50, #45a049); color: white; border: none; padding: 15px 30px;
+      font-size: 18px; border-radius: 10px; cursor: pointer; transition: all 0.3s ease;
     }
+    .join-form button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(76,175,80,0.4); }
 
-    /* 地牢背景 */
-    .dungeon-background {
-      position: relative;
-      background: 
-        linear-gradient(45deg, #2c1810 0%, #1a0f0a 100%),
-        url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="brick" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><rect width="20" height="20" fill="%23333"/><rect width="20" height="4" fill="%23555"/><rect width="4" height="20" fill="%23555"/></pattern></defs><rect width="100" height="100" fill="url(%23brick)"/></svg>');
-      border-radius: 15px;
-      padding: 30px;
-      margin: 20px 0;
-      box-shadow: 
-        inset 0 0 50px rgba(0, 0, 0, 0.5),
-        0 0 30px rgba(255, 0, 0, 0.1);
-      position: relative;
-      overflow: hidden;
+    .waiting-area {
+      display: none; text-align: center; background: rgba(0,0,0,0.7); padding: 40px; border-radius: 20px; margin: 50px auto; max-width: 800px;
+      border: 2px solid #f39c12; box-shadow: 0 0 30px rgba(243,156,18,0.3);
     }
+    .waiting-area.show { display: block; }
+    .waiting-area h2 { color: #f39c12; margin-bottom: 30px; font-size: 28px; }
+    .players-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
+    .player-item { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; border: 2px solid #f39c12; }
 
-    .dungeon-background::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: 
-        radial-gradient(circle at 30% 20%, rgba(255, 100, 100, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 70% 80%, rgba(100, 100, 255, 0.1) 0%, transparent 50%);
-      pointer-events: none;
+    .start-game-button {
+      background: linear-gradient(45deg, #f39c12, #e67e22); color: white; border: none; padding: 12px 22px; font-size: 16px;
+      border-radius: 10px; cursor: pointer; transition: all 0.3s ease; margin: 8px 4px;
     }
+    .start-game-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(243,156,18,0.4); }
+    .start-game-button:disabled { background: #7f8c8d; cursor: not-allowed; opacity: 0.6; }
 
-    /* 戰鬥區域 */
-    .battle-area {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      min-height: 400px;
-      margin: 30px 0;
+    .game-area { display: none; }
+    .game-area.show { display: block; }
+
+    .turn-indicator {
+      text-align: center; margin-bottom: 20px; padding: 16px; background: rgba(255,107,107,0.2); border-radius: 15px; border: 2px solid #ff6b6b;
     }
+    .turn-indicator h3 { color: #ff6b6b; font-size: 22px; margin-bottom: 6px; }
 
-    /* 玩家區域 */
-    .player-side {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 20px;
+    .battle-area { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 16px; }
+    .player-side, .enemy-side {
+      background: rgba(0,0,0,0.6); border-radius: 20px; padding: 16px; border: 2px solid #666;
     }
+    .player-side { border-color: #4caf50; box-shadow: 0 0 20px rgba(76,175,80,0.3); }
+    .enemy-side { border-color: #ff6b6b; box-shadow: 0 0 20px rgba(255,107,107,0.3); }
+    .side-title { text-align: center; font-size: 16px; font-weight: bold; margin-bottom: 10px; padding: 6px; border-radius: 10px; }
+    .player-side .side-title { background: rgba(76,175,80,0.3); color: #4caf50; }
+    .enemy-side .side-title { background: rgba(255,107,107,0.3); color: #ff6b6b; }
 
-    .player-character {
-      background: linear-gradient(145deg, #4a4a4a 0%, #3a3a3a 100%);
-      border: 3px solid #6a6a6a;
-      border-radius: 20px;
-      padding: 25px;
-      text-align: center;
-      position: relative;
-      min-width: 200px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    .player-info {
+      display: flex; justify-content: space-between; align-items: center; padding: 10px; margin: 6px 0;
+      background: rgba(255,255,255,0.1); border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); transition: all 0.3s ease; font-size: 14px;
     }
+    .player-info.current-turn { border: 2px solid #f39c12; background: rgba(243,156,18,0.2); box-shadow: 0 0 15px rgba(243,156,18,0.3); }
+    .player-name { font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+    .player-score { color: #ff6b6b; font-size: 12px; font-weight: bold; display: flex; align-items: center; gap: 4px; }
+    .player-cards-count { color: #3498db; font-size: 11px; margin-left: 8px; }
 
-    .player-character.current-turn {
-      border-color: #ff6b6b;
-      background: linear-gradient(145deg, #5a3a3a 0%, #4a2a2a 100%);
-      box-shadow: 0 0 30px rgba(255, 107, 107, 0.4);
-      animation: pulse 2s infinite;
+    /* 手牌與動態排版 */
+    .cards-area { margin-top: 6px; position: relative; }
+    .cards-title { text-align: center; font-size: 22px; margin-bottom: 10px; color: #4caf50; }
+
+    .hand-container { position: relative; display: flex; justify-content: center; align-items: flex-end; height: 45vh; margin: 6px 0 0; }
+    .hand-background {
+      position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 85vw; max-width: 1500px; height: 30vh;
+      background: linear-gradient(45deg, #8B4513, #A0522D); border-radius: 50% 50% 0 0; box-shadow: 0 -10px 30px rgba(0,0,0,0.5); z-index: 1;
     }
-
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.05); }
+    .hand-shadow {
+      position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); width: 70vw; max-width: 1200px; height: 28px;
+      background: radial-gradient(ellipse, rgba(0,0,0,0.3), transparent); border-radius: 50%;
     }
-
-    .character-avatar {
-      font-size: 4rem;
-      margin-bottom: 15px;
-      text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
-    }
-
-    .character-name {
-      font-size: 1.3rem;
-      font-weight: bold;
-      color: #ffd700;
-      margin-bottom: 10px;
-    }
-
-    .character-health {
-      font-size: 1.2rem;
-      color: #ff4444;
-      font-weight: bold;
-    }
-
-    .character-cards {
-      font-size: 0.9rem;
-      color: #4a9eff;
-      margin-top: 5px;
-    }
-
-    /* 敵人區域 - 其他玩家 */
-    .enemy-side {
-      flex: 1;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
-      padding: 20px;
-    }
-
-    .enemy-player {
-      background: linear-gradient(145deg, #3a2a2a 0%, #2a1a1a 100%);
-      border: 2px solid #5a3a3a;
-      border-radius: 15px;
-      padding: 20px;
-      text-align: center;
-      position: relative;
-      transition: all 0.3s ease;
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-    }
-
-    .enemy-player:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 25px rgba(255, 0, 0, 0.2);
-    }
-
-    .enemy-player.current-turn {
-      border-color: #ff6b6b;
-      background: linear-gradient(145deg, #4a2a2a 0%, #3a1a1a 100%);
-      box-shadow: 0 0 20px rgba(255, 68, 68, 0.4);
-      animation: enemyAttack 0.5s ease-in-out;
-    }
-
-    @keyframes enemyAttack {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.1); }
-    }
-
-    .enemy-avatar {
-      font-size: 3rem;
-      margin-bottom: 10px;
-      text-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
-    }
-
-    .enemy-name {
-      font-size: 1rem;
-      font-weight: bold;
-      color: #ff6666;
-      margin-bottom: 8px;
-    }
-
-    .enemy-health {
-      font-size: 1rem;
-      color: #ff4444;
-      font-weight: bold;
-    }
-
-    .enemy-cards {
-      font-size: 0.8rem;
-      color: #888;
-      margin-top: 5px;
-    }
-
-    .enemy-status {
-      position: absolute;
-      top: -10px;
-      right: -10px;
-      background: #ff4444;
-      color: white;
-      border-radius: 50%;
-      width: 30px;
-      height: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 0.8rem;
-    }
-
-    /* 手牌區域 */
-    .hand-area {
-      background: rgba(0, 0, 0, 0.8);
-      border-radius: 15px;
-      padding: 30px;
-      margin: 20px 0;
-      border: 2px solid #4a4a4a;
-      display: none;
-    }
-
-    .hand-area.show {
-      display: block;
-      animation: slideInUp 0.5s ease-out;
-    }
-
-    @keyframes slideInUp {
-      from {
-        opacity: 0;
-        transform: translateY(30px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .hand-title {
-      font-size: 1.5rem;
-      font-weight: bold;
-      color: #ffd700;
-      margin-bottom: 25px;
-      text-align: center;
-    }
-
-    .cards-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 25px;
-      justify-items: center;
+    .cards-in-hand {
+      position: relative; display: flex; justify-content: space-evenly; align-items: flex-end; gap: 0;
+      width: 92vw; max-width: 1400px; min-height: 260px; margin: 0 auto; z-index: 2; padding: 20px;
     }
 
     .card {
-      background: linear-gradient(145deg, #3a3a3a 0%, #2a2a2a 100%);
-      border: 3px solid #5a5a5a;
-      border-radius: 15px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      position: relative;
-      text-align: center;
-      min-height: 400px;
-      width: 280px;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-start;
-      align-items: center;
-      overflow: hidden;
-      padding: 15px;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      background: linear-gradient(145deg, #2c3e50, #34495e);
+      border: 3px solid #3498db; border-radius: 15px; padding: 16px; cursor: pointer; transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+      position: relative; width: 180px; height: 270px; box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+      transform-origin: bottom center; transform: var(--pose, none);
     }
-
-    .card:hover {
-      transform: translateY(-15px) scale(1.08);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-      border-color: #ffd700;
-    }
-
-    .card.selected {
-      border-color: #ff6b6b;
-      background: linear-gradient(145deg, #4a2a2a 0%, #3a1a1a 100%);
-      box-shadow: 0 0 30px rgba(255, 107, 107, 0.6);
-      transform: translateY(-15px) scale(1.08);
-    }
+    .card:hover { transform: var(--pose, none) translateY(-28px) scale(1.08); box-shadow: 0 18px 40px rgba(52,152,219,0.4); border-color: #e74c3c; z-index: 10; }
+    .card.selected { border-color: #e74c3c; box-shadow: 0 0 24px rgba(231,76,60,0.6); transform: var(--pose, none) translateY(-20px) scale(1.06); z-index: 10; }
+    .card:nth-child(1), .card:nth-child(2), .card:nth-child(3), .card:nth-child(4) { transform: var(--pose, none); }
 
     .card-cost {
-      position: absolute;
-      top: 12px;
-      left: 12px;
-      background: #ff4444;
-      color: white;
-      border-radius: 50%;
-      width: 35px;
-      height: 35px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 1.1rem;
-      z-index: 2;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      position: absolute; top: 10px; right: 10px; background: #e74c3c; color: white; width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px;
     }
-
     .card-image {
-      width: 100%;
-      height: 280px;
-      object-fit: contain;
-      border-radius: 10px;
-      margin-bottom: 15px;
-      background: rgba(0, 0, 0, 0.2);
-      border: 2px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .card-name {
-      font-size: 1.2rem;
-      font-weight: bold;
-      color: #e0e0e0;
-      margin-bottom: 10px;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-    }
-
-    .card-type {
-      font-size: 0.9rem;
-      color: #888;
-      background: rgba(0, 0, 0, 0.4);
-      padding: 6px 12px;
-      border-radius: 6px;
+      width: 100%; height: 170px; object-fit: contain; border-radius: 8px; margin-bottom: 10px; background: rgba(0, 0, 0, 0.2);
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
+    .card-name { font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 6px; color: #ecf0f1; line-height: 1.2; }
+    .card-type { font-size: 11px; text-align: center; color: #bdc3c7; margin-bottom: 6px; }
+    .card-effect { font-size: 10px; text-align: center; color: #95a5a6; line-height: 1.2; background: rgba(0,0,0,0.3); padding: 6px; border-radius: 4px; }
 
-    /* 卡片放大模態框 */
-    .card-modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.9);
-      display: none;
-      justify-content: center;
-      align-items: center;
-      z-index: 2000;
-      backdrop-filter: blur(5px);
+    .target-selection { margin: 10px 0; text-align: center; }
+    .target-selection select {
+      padding: 10px 15px; font-size: 16px; border-radius: 8px; background: rgba(0,0,0,0.7); color: white; border: 2px solid #3498db; margin: 0 8px;
+    }
+    .target-selection button {
+      background: linear-gradient(45deg, #e74c3c, #c0392b); color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 8px;
+      cursor: pointer; transition: all 0.3s ease; margin: 0 5px;
+    }
+    .target-selection button:disabled { background: #7f8c8d; cursor: not-allowed; opacity: 0.6; }
+
+    .bluff-button { background: linear-gradient(45deg, #9b59b6, #8e44ad); color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; margin: 0 5px; }
+    .bluff-selection {
+      margin: 20px 0; text-align: center; background: rgba(155,89,182,0.1); padding: 20px; border-radius: 15px; border: 2px solid #9b59b6;
+    }
+    .bluff-selection h4 { color: #9b59b6; margin-bottom: 15px; font-size: 18px; }
+    .bluff-selection select {
+      padding: 10px 15px; font-size: 16px; border-radius: 8px; background: rgba(0,0,0,0.7); color: white; border: 2px solid #9b59b6; margin: 0 10px;
     }
 
-    .card-modal.show {
-      display: flex;
-      animation: fadeIn 0.3s ease-out;
+    .bluff-confirmation {
+      margin: 20px 0; text-align: center; background: rgba(243,156,18,0.1); padding: 20px; border-radius: 15px; border: 2px solid #f39c12;
     }
+    .bluff-confirmation h4 { color: #f39c12; margin-bottom: 15px; font-size: 18px; }
+    .bluff-confirmation .timer { color: #e67e22; font-weight: bold; margin-left: 8px; }
 
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-      }
-      to {
-        opacity: 1;
-      }
+    .game-logs {
+      background: rgba(0,0,0,0.8); border-radius: 15px; padding: 20px; margin-top: 16px; border: 2px solid #34495e; max-height: 300px; overflow-y: auto;
     }
+    .game-logs h3 { color: #3498db; margin-bottom: 10px; font-size: 18px; }
+    .log-entry { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 14px; line-height: 1.4; }
+    .log-entry:last-child { border-bottom: none; }
 
-    .card-modal-content {
-      background: linear-gradient(145deg, #3a3a3a 0%, #2a2a2a 100%);
-      border: 4px solid #ffd700;
-      border-radius: 20px;
-      padding: 30px;
-      text-align: center;
-      position: relative;
-      max-width: 50vw;
-      max-height: 80vh;
-      width: 600px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
-      animation: scaleIn 0.3s ease-out;
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
+    .modal-content {
+      position: relative; background: linear-gradient(145deg, #2c3e50, #34495e); margin: 6% auto; padding: 22px; border: 3px solid #3498db; border-radius: 20px;
+      width: 50%; max-width: 600px; box-shadow: 0 0 50px rgba(52,152,219,0.5);
     }
-
-    @keyframes scaleIn {
-      from {
-        transform: scale(0.8);
-        opacity: 0;
-      }
-      to {
-        transform: scale(1);
-        opacity: 1;
-      }
+    .modal-close { position: absolute; top: 12px; right: 16px; color: #aaa; font-size: 26px; font-weight: bold; cursor: pointer; }
+    .modal-close:hover { color: #e74c3c; }
+    .modal-card { text-align: center; }
+    .modal-card-image {
+      width: 100%; max-width: 400px; height: 300px; object-fit: contain; border-radius: 15px; margin-bottom: 20px; background: rgba(0,0,0,0.2);
+      border: 2px solid rgba(255,255,255,0.1);
     }
+    .modal-card-name { font-size: 24px; font-weight: bold; color: #ecf0f1; margin-bottom: 10px; }
+    .modal-card-type { font-size: 16px; color: #bdc3c7; margin-bottom: 15px; }
+    .modal-card-effect { font-size: 14px; color: #95a5a6; line-height: 1.4; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; }
 
-    .card-modal-close {
-      position: absolute;
-      top: 15px;
-      right: 15px;
-      background: #ff4444;
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      cursor: pointer;
-      font-size: 1.2rem;
-      font-weight: bold;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.3s ease;
-      z-index: 2001;
-    }
-
-    .card-modal-close:hover {
-      background: #ff6666;
-      transform: scale(1.1);
-    }
-
-    .card-modal-image {
-      width: 100%;
-      height: 400px;
-      object-fit: contain;
-      border-radius: 15px;
-      margin-bottom: 20px;
-      background: rgba(0, 0, 0, 0.3);
-      border: 3px solid rgba(255, 255, 255, 0.2);
-    }
-
-    .card-modal-name {
-      font-size: 2rem;
-      font-weight: bold;
-      color: #ffd700;
-      margin-bottom: 15px;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-    }
-
-    .card-modal-type {
-      font-size: 1.2rem;
-      color: #888;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 8px 16px;
-      border-radius: 8px;
-      border: 2px solid rgba(255, 255, 255, 0.2);
-      display: inline-block;
-    }
-
-    .card-modal-cost {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      background: #ff4444;
-      color: white;
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 1.5rem;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    }
-
-    /* 遊戲控制區域 */
-    .game-controls {
-      background: rgba(0, 0, 0, 0.8);
-      border-radius: 15px;
-      padding: 25px;
-      margin: 20px 0;
-      border: 2px solid #4a4a4a;
-    }
-
-    .controls-title {
-      font-size: 1.3rem;
-      font-weight: bold;
-      color: #ffd700;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-
-    .form-group {
-      margin: 15px 0;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: bold;
-      color: #e0e0e0;
-    }
-
-    .form-group select {
-      width: 100%;
-      padding: 12px;
-      background: #2a2a2a;
-      border: 2px solid #4a4a4a;
-      border-radius: 8px;
-      color: #e0e0e0;
-      font-size: 1rem;
-    }
-
-    .form-group select:focus {
-      outline: none;
-      border-color: #ffd700;
-      box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
-    }
-
-    .btn {
-      background: linear-gradient(145deg, #4a4a4a 0%, #3a3a3a 100%);
-      color: #e0e0e0;
-      padding: 12px 25px;
-      border: 2px solid #5a5a5a;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 1rem;
-      font-weight: bold;
-      margin: 5px;
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .btn:hover {
-      background: linear-gradient(145deg, #5a5a5a 0%, #4a4a4a 100%);
-      transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-    }
-
-    .btn:disabled {
-      background: #2a2a2a;
-      color: #666;
-      cursor: not-allowed;
-      transform: none;
-      box-shadow: none;
-    }
-
-    .btn-primary {
-      background: linear-gradient(145deg, #4a9eff 0%, #3a8eef 100%);
-      border-color: #5aaeff;
-    }
-
-    .btn-success {
-      background: linear-gradient(145deg, #00ff88 0%, #00ee77 100%);
-      border-color: #11ff99;
-      color: #000;
-    }
-
-    .btn-danger {
-      background: linear-gradient(145deg, #ff4444 0%, #ee3333 100%);
-      border-color: #ff5555;
-    }
-
-    /* 回合指示器 */
-    .turn-indicator {
-      background: linear-gradient(145deg, #3a2a2a 0%, #2a1a1a 100%);
-      border: 2px solid #ff6b6b;
-      border-radius: 10px;
-      padding: 15px;
-      margin: 20px 0;
-      text-align: center;
-      font-size: 1.2rem;
-      font-weight: bold;
-      color: #ff6b6b;
-      box-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
-      animation: pulse 2s infinite;
-    }
-
-    /* 遊戲日誌 */
-    .log-section {
-      background: rgba(0, 0, 0, 0.8);
-      border-radius: 15px;
-      padding: 20px;
-      margin: 20px 0;
-      border: 2px solid #4a4a4a;
-      max-height: 300px;
-      overflow-y: auto;
-    }
-
-    .log-title {
-      font-size: 1.2rem;
-      font-weight: bold;
-      color: #ffd700;
-      margin-bottom: 15px;
-    }
-
-    .log-entry {
-      padding: 8px 0;
-      border-bottom: 1px solid #333;
-      color: #e0e0e0;
-      font-size: 0.9rem;
-    }
-
-    .log-entry:last-child {
-      border-bottom: none;
-    }
-
-    /* 加入遊戲表單 */
-    .join-form {
-      background: rgba(0, 0, 0, 0.9);
-      border-radius: 20px;
-      padding: 40px;
-      margin: 50px auto;
-      max-width: 500px;
-      text-align: center;
-      border: 2px solid #4a4a4a;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-    }
-
-    .join-form h2 {
-      font-size: 2rem;
-      color: #ffd700;
-      margin-bottom: 30px;
-      text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
-    }
-
-    .form-group input {
-      width: 100%;
-      padding: 15px;
-      background: #2a2a2a;
-      border: 2px solid #4a4a4a;
-      border-radius: 8px;
-      color: #e0e0e0;
-      font-size: 1.1rem;
-    }
-
-    .form-group input:focus {
-      outline: none;
-      border-color: #ffd700;
-      box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
-    }
-
-    /* 隱藏元素 */
-    .hidden {
-      display: none !important;
-    }
-
-    /* 響應式設計 */
+    @media (max-width: 1200px) { .battle-area { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 768px) {
-      .top-bar {
-        padding: 0 10px;
-        height: 60px;
-      }
-      
-      .main-game-area {
-        margin-top: 60px;
-        padding: 10px;
-      }
-      
-      .battle-area {
-        flex-direction: column;
-        gap: 30px;
-      }
-      
-      .enemy-side {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 15px;
-      }
-      
-      .cards-grid {
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      }
-      
-      .card {
-        width: 250px;
-        min-height: 350px;
-      }
-      
-      .card-image {
-        height: 220px;
-      }
-
-      .card-modal-content {
-        max-width: 90vw;
-        width: 350px;
-        padding: 20px;
-      }
-
-      .card-modal-image {
-        height: 250px;
-      }
-
-      .card-modal-name {
-        font-size: 1.5rem;
-      }
+      .battle-area { grid-template-columns: 1fr; }
+      .hand-container { height: 38vh; }
+      .hand-background { width: 92vw; height: 26vh; }
+      .card { width: 150px; height: 225px; }
+      .card-image { height: 140px; }
+      .card-name { font-size: 12px; }
+      .card-type { font-size: 10px; }
+      .card-effect { font-size: 9px; }
     }
+
+    .notification {
+      position: fixed; top: 80px; right: 20px; padding: 12px 18px; border-radius: 10px; color: white; font-weight: bold; z-index: 1001; animation: slideIn 0.3s ease;
+    }
+    .notification.success { background: rgba(76,175,80,0.9); }
+    .notification.error { background: rgba(244,67,54,0.9); }
+    .notification.warning { background: rgba(255,193,7,0.9); color: #333; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* 戰鬥特效層與動畫 */
+    #fxLayer{ position:fixed; inset:0; pointer-events:none; z-index:2000; }
+    .fx-projectile{ position:fixed; width:22px; height:22px; border-radius:50%;
+      background: radial-gradient(circle at 30% 30%, #fff, #ff6b6b 40%, rgba(255,107,107,0.1) 70%);
+      box-shadow:0 0 18px rgba(255,107,107,0.8), 0 0 40px rgba(255,107,107,0.4);
+      transform:translate(-50%,-50%); transition: transform 450ms cubic-bezier(.2,.8,.2,1); }
+    .fx-projectile.snipe{ background: radial-gradient(circle at 30% 30%, #fff, #f1c40f 40%, rgba(241,196,15,0.1) 70%); box-shadow:0 0 18px rgba(241,196,15,0.9), 0 0 40px rgba(241,196,15,0.5); }
+    .fx-projectile.gift{ background: radial-gradient(circle at 30% 30%, #fff, #2ecc71 40%, rgba(46,204,113,0.1) 70%); box-shadow:0 0 18px rgba(46,204,113,0.9), 0 0 40px rgba(46,204,113,0.5); }
+    .fx-projectile.clown{ background: radial-gradient(circle at 30% 30%, #fff, #e74c3c 40%, rgba(231,76,60,0.1) 70%); box-shadow:0 0 18px rgba(231,76,60,0.9), 0 0 40px rgba(231,76,60,0.5); }
+    .fx-hit{ position:fixed; width:14px; height:14px; border-radius:50%; transform:translate(-50%,-50%) scale(1);
+      background: radial-gradient(circle, rgba(255,255,255,.95), rgba(255,255,255,0) 60%);
+      animation: fx-hit-pulse 500ms ease-out forwards; filter: drop-shadow(0 0 12px rgba(255,255,255,0.9)); }
+    @keyframes fx-hit-pulse{ 0%{ opacity:0; transform:translate(-50%,-50%) scale(.2); } 40%{ opacity:1; transform:translate(-50%,-50%) scale(2.2); } 100%{ opacity:0; transform:translate(-50%,-50%) scale(3.2); } }
+    .fx-shield{ position:absolute; inset:-6px; border-radius:12px; border:3px solid rgba(52,152,219,.0); animation: fx-shield-pulse 700ms ease-out 0s 1 forwards; }
+    @keyframes fx-shield-pulse{ 0%{ box-shadow:0 0 0 0 rgba(52,152,219,0.0); border-color:rgba(52,152,219,0.0); }
+      40%{ box-shadow:0 0 18px 6px rgba(52,152,219,0.55); border-color:rgba(52,152,219,0.8); }
+      100%{ box-shadow:0 0 0 0 rgba(52,152,219,0.0); border-color:rgba(52,152,219,0.0); } }
+    .fx-shake{ animation: fx-shake 320ms ease-in-out 0s 1; }
+    @keyframes fx-shake{ 0%,100%{ transform:translateX(0); } 20%{ transform:translateX(-6px); } 40%{ transform:translateX(6px); } 60%{ transform:translateX(-4px); } 80%{ transform:translateX(4px); } }
+    .fx-smoke{ position:fixed; width:14px; height:14px; transform:translate(-50%,-50%); background: radial-gradient(circle, rgba(255,255,255,.9), rgba(0,0,0,0) 60%); filter: blur(1px); animation: fx-smoke-fade 550ms ease-out forwards; }
+    @keyframes fx-smoke-fade{ 0%{ opacity:.9; transform:translate(-50%,-50%) scale(.6); } 100%{ opacity:0; transform:translate(-50%,-50%) scale(2.0); } }
+
+    .gift-mode label { cursor: pointer; }
   </style>
 </head>
 <body>
   <div class="game-container">
-    <!-- 頂部狀態欄 -->
+    <div id="connectionStatus" class="connection-status disconnected"><i class="fas fa-wifi"></i> 連線中...</div>
+
     <div class="top-bar">
-      <div class="player-info">
-        <div class="player-name" id="playerNameDisplay">等待加入...</div>
-        <div class="health-bar">
-          <i class="fas fa-heart health-icon"></i>
-          <span class="health-text" id="playerHealth">100/100</span>
-        </div>
-        <div class="gold-info">
-          <i class="fas fa-coins gold-icon"></i>
-          <span class="gold-text" id="playerGold">0</span>
-        </div>
-        <div class="energy-info">
-          <i class="fas fa-bolt energy-icon"></i>
-          <span class="energy-text" id="playerEnergy">3/3</span>
-        </div>
-      </div>
+      <div class="stat"><i class="fas fa-heart"></i><span id="playerHealth">100</span></div>
+      <div class="stat"><i class="fas fa-coins"></i><span id="playerGold">0</span></div>
+      <div class="stat"><i class="fas fa-bolt"></i><span id="playerEnergy">3</span></div>
     </div>
 
-    <div id="connectionStatus" class="connection-status disconnected">
-      <i class="fas fa-wifi"></i> 連線中...
-    </div>
-
-    <!-- 加入遊戲表單 -->
     <div id="joinForm" class="join-form">
-      <h2><i class="fas fa-dungeon"></i> 進入地牢</h2>
-      <div class="form-group">
-        <label for="playerName">選擇你的冒險者名稱</label>
-        <input type="text" id="playerName" placeholder="輸入冒險者名稱" maxlength="10">
-      </div>
-      <button class="btn btn-success" onclick="joinGame()">
-        <i class="fas fa-play"></i> 開始冒險
-      </button>
+      <h2><i class="fas fa-gamepad"></i> 加入遊戲</h2>
+      <input type="text" id="playerNameInput" placeholder="輸入你的名字" maxlength="20">
+      <button onclick="joinGame()">加入遊戲</button>
     </div>
 
-    <!-- 主遊戲區域 -->
-    <div id="gameArea" class="main-game-area hidden">
-      <div class="dungeon-background">
-        <h2 style="text-align: center; color: #ffd700; margin-bottom: 30px; font-size: 2rem;">
-          <i class="fas fa-skull-crossbones"></i> 壽星陰謀大戰
-        </h2>
+    <div id="waitingArea" class="waiting-area">
+      <h2><i class="fas fa-users"></i> 等待其他玩家</h2>
+      <div id="playersList" class="players-list"></div>
+      <button id="startGameButton" class="start-game-button" onclick="startGame()" disabled>開始遊戲 (需要至少2個玩家)</button>
+    </div>
 
-        <div id="turnIndicator" class="turn-indicator" style="display: none;">
-          <i class="fas fa-clock"></i> 輪到：<span id="currentTurnPlayer"></span>
+    <div id="gameArea" class="game-area">
+      <div class="turn-indicator"><h3 id="turnText">等待遊戲開始...</h3></div>
+
+      <div class="battle-area">
+        <div class="player-side">
+          <div class="side-title"><i class="fas fa-user"></i> 你的角色</div>
+          <div id="playerInfo" class="player-info">
+            <div class="player-name"><i class="fas fa-user"></i><span id="playerName">玩家</span></div>
+            <div class="player-score"><i class="fas fa-heart"></i><span id="playerScore">100</span></div>
+            <div class="player-cards-count"><i class="fas fa-clone"></i><span id="playerCardsCount">0</span></div>
+          </div>
         </div>
 
-        <!-- 戰鬥區域 -->
-        <div class="battle-area">
-          <!-- 玩家區域 -->
-          <div class="player-side">
-            <div id="playerCharacter" class="player-character">
-              <div class="character-avatar">🛡️</div>
-              <div class="character-name" id="playerCharacterName">等待加入...</div>
-              <div class="character-health" id="playerCharacterHealth">100/100</div>
-              <div class="character-cards" id="playerCharacterCards">0 張手牌</div>
+        <div class="enemy-side">
+          <div class="side-title"><i class="fas fa-skull"></i> 其他玩家</div>
+          <div id="enemiesList"></div>
+        </div>
+
+        <div class="player-side">
+          <div class="side-title"><i class="fas fa-ghost"></i> 行動與虛張聲勢</div>
+          <div style="text-align:center;">
+            <button id="openBluffButton" class="bluff-button" style="display:none;" onclick="openBluffUI()">我要虛張聲勢</button>
+            <button id="endTurnButton" class="start-game-button" onclick="openEndTurnModal()">結束回合 / 棄1抽1</button>
+          </div>
+          <div id="adminTools" style="display:none; text-align:center; margin-top:10px;">
+            <button onclick="adminResetGame()" class="start-game-button" style="background:linear-gradient(45deg,#c0392b,#e74c3c);">管理員：重啟遊戲</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="cards-area">
+        <h3 class="cards-title"><i class="fas fa-hand-paper"></i> 你的手牌</h3>
+        <div class="hand-container">
+          <div class="hand-background"></div>
+          <div class="hand-shadow"></div>
+          <div id="myCards" class="cards-in-hand"></div>
+        </div>
+
+        <div id="targetSelection" class="target-selection" style="display: none;">
+          <h4>選擇目標玩家：</h4>
+          <select id="targetSelect"><option value="">請選擇目標</option></select>
+
+          <!-- 贈禮者模式切換（實打） -->
+          <div id="giftModeBox" class="gift-mode" style="display:none; margin-top:10px;">
+            <div style="margin-bottom:8px; color:#bdc3c7;">選擇贈禮者模式：</div>
+            <label style="margin-right:10px;">
+              <input type="radio" name="giftMode" value="A" checked> 模式A：自己 +1，目標 -1
+            </label>
+            <label>
+              <input type="radio" name="giftMode" value="B"> 模式B：分散兩個不同目標各 -1（自己不加分）
+            </label>
+            <div id="giftSecondTargetRow" style="display:none; margin-top:8px;">
+              <span style="margin-right:8px; color:#bdc3c7;">第二目標：</span>
+              <select id="giftSecondTargetSelect">
+                <option value="">請選擇第二目標</option>
+              </select>
             </div>
           </div>
 
-          <!-- 敵人區域 - 其他玩家 -->
-          <div class="enemy-side" id="enemyPlayers">
-            <!-- 其他玩家會動態顯示在這裡 -->
+          <div style="margin-top:10px;">
+            <button onclick="playSelectedCard()" id="playButton" disabled>使用卡片</button>
+            <button onclick="cancelCardSelection()" id="cancelButton">取消</button>
           </div>
         </div>
 
-        <!-- 我的手牌 -->
-        <div id="myCardsArea" class="hand-area">
-          <h3 class="hand-title">
-            <i class="fas fa-hand-paper"></i> 我的手牌
-          </h3>
-          <div class="cards-grid" id="myCards"></div>
-        </div>
+        <div id="bluffSelection" class="bluff-selection" style="display: none;">
+          <h4>選擇要假裝使用的卡片與目標：</h4>
+          <select id="bluffCardSelect"><option value="">請選擇卡片</option></select>
+          <select id="bluffTargetSelect"><option value="">請選擇目標</option></select>
 
-        <div class="game-controls">
-          <h3 class="controls-title">
-            <i class="fas fa-sword"></i> 選擇行動
-          </h3>
-          
-          <div class="form-group">
-            <label for="target">選擇目標</label>
-            <select id="target">
-              <option value="">無目標</option>
-            </select>
+          <!-- 贈禮者（虛張）模式切換 -->
+          <div id="giftModeBoxBluff" class="gift-mode" style="display:none; margin-top:10px;">
+            <div style="margin-bottom:8px; color:#bdc3c7;">選擇贈禮者模式（虛張）：</div>
+            <label style="margin-right:10px;">
+              <input type="radio" name="giftModeBluff" value="A" checked> 模式A：自己 +1，目標 -1
+            </label>
+            <label>
+              <input type="radio" name="giftModeBluff" value="B"> 模式B：分散兩個不同目標各 -1（自己不加分）
+            </label>
+            <div id="giftSecondTargetRowBluff" style="display:none; margin-top:8px;">
+              <span style="margin-right:8px; color:#bdc3c7;">第二目標：</span>
+              <select id="giftSecondTargetSelectBluff">
+                <option value="">請選擇第二目標</option>
+              </select>
+            </div>
           </div>
 
-          <button class="btn btn-primary" id="playButton" onclick="playCard()" disabled>
-            <i class="fas fa-dice"></i> 出牌
-          </button>
-          <button class="btn btn-success" id="startButton" onclick="startGame()" style="display: none;">
-            <i class="fas fa-rocket"></i> 開始戰鬥
-          </button>
+          <div style="margin-top:10px;">
+            <button onclick="confirmBluff()" id="confirmBluffButton" disabled>確認虛張聲勢</button>
+            <button onclick="cancelBluff()" id="cancelBluffButton">取消</button>
+          </div>
         </div>
 
-        <div class="log-section">
-          <h3 class="log-title">
-            <i class="fas fa-scroll"></i> 戰鬥日誌
-          </h3>
-          <div id="log" class="log-section">
-            <div class="log-entry">🎮 等待戰鬥開始...</div>
-          </div>
+        <div id="bluffConfirmation" class="bluff-confirmation" style="display: none;">
+          <h4 id="bluffConfirmationText">等待回應...</h4>
+          <div style="margin-bottom:10px;">自動逾時：<span id="bluffTimer" class="timer">5.0</span> 秒</div>
+          <button onclick="callBluff()" class="call-bluff" style="background:linear-gradient(45deg,#e74c3c,#c0392b);color:#fff;border:none;padding:10px 20px;border-radius:8px;margin:0 5px;">揭穿虛張聲勢</button>
+          <button onclick="notCallBluff()" style="background:linear-gradient(45deg,#f39c12,#e67e22);color:#fff;border:none;padding:10px 20px;border-radius:8px;margin:0 5px;">不揭穿</button>
+        </div>
+      </div>
+
+      <div class="game-logs">
+        <h3><i class="fas fa-scroll"></i> 遊戲日誌</h3>
+        <div id="gameLogs"></div>
+      </div>
+    </div>
+
+    <div id="cardModal" class="modal">
+      <div class="modal-content">
+        <span class="modal-close" onclick="closeCardModal()">&times;</span>
+        <div class="modal-card">
+          <img id="modalCardImage" class="modal-card-image" src="" alt="">
+          <div id="modalCardName" class="modal-card-name"></div>
+          <div id="modalCardType" class="modal-card-type"></div>
+          <div id="modalCardEffect" class="modal-card-effect"></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- 卡片放大模態框 -->
-  <div id="cardModal" class="card-modal">
-    <div class="card-modal-content">
-      <button class="card-modal-close" onclick="closeCardModal()">
-        <i class="fas fa-times"></i>
-      </button>
-      <div class="card-modal-cost" id="modalCardCost">1</div>
-      <img id="modalCardImage" class="card-modal-image" src="" alt="">
-      <div class="card-modal-name" id="modalCardName"></div>
-      <div class="card-modal-type" id="modalCardType">技能</div>
+  <!-- 棄1抽1 彈窗 -->
+  <div id="endTurnModal" class="modal">
+    <div class="modal-content" style="max-width:460px;">
+      <span class="modal-close" onclick="closeEndTurnModal()">&times;</span>
+      <h3 style="color:#ecf0f1; margin-bottom:12px;">結束回合 / 棄1抽1</h3>
+      <div style="color:#bdc3c7; margin-bottom:8px;">可選擇丟掉一張手牌並抽一張新牌；若不想丟，直接結束回合。</div>
+      <div style="margin:10px 0;">
+        <select id="discardSelect" style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,.6); color:#fff; border:1px solid #3498db;">
+          <option value="">（不丟牌）</option>
+        </select>
+      </div>
+      <div style="text-align:right;">
+        <button onclick="submitEndTurn(false)" class="start-game-button" style="margin-right:6px;">直接結束</button>
+        <button onclick="submitEndTurn(true)" class="start-game-button">丟掉並抽1</button>
+      </div>
     </div>
   </div>
+
+  <!-- 偵探 強制選擇 彈窗 -->
+  <div id="forceChoiceModal" class="modal">
+    <div class="modal-content" style="max-width:460px;">
+      <span class="modal-close" onclick="closeForceChoiceModal()">&times;</span>
+      <h3 style="color:#ecf0f1; margin-bottom:12px;">偵探：請選擇一項</h3>
+      <div style="color:#e67e22; margin-bottom:10px;">剩餘 <span id="forceTimer">5.0</span> 秒</div>
+      <div style="margin:8px 0; color:#bdc3c7;">A) 丟掉一張手牌</div>
+      <select id="forceDiscardSelect" style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,.6); color:#fff; border:1px solid #9b59b6; margin-bottom:10px;">
+        <option value="">選擇要丟的手牌</option>
+      </select>
+      <div style="margin:8px 0; color:#bdc3c7;">B) 扣 1 分</div>
+      <div style="text-align:right;">
+        <button onclick="answerForceChoice('discard_one')" class="start-game-button" style="margin-right:6px;">丟掉選擇的牌</button>
+        <button onclick="answerForceChoice('lose_one')" class="start-game-button">扣 1 分</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="fxLayer"></div>
 
   <script>
-    let socket = io();
-    let currentPlayer = null;
+    const socket = io();
+    let currentPlayer = '';
+    let currentGameState = null;
     let selectedCard = null;
-    let gameData = null;
-    let myPlayerName = null;
-    let myCards = [];
+    let pendingPrompt = null;
+    let countdownInterval = null;
+    let countdownTimeout = null;
+    let lastAction = null;
+    let lastPrompt = null;
+    let myHandCards = [];
+    let forceInterval = null, forceTimeout = null;
 
-    // 卡牌圖片映射 - 使用 Flask 靜態文件路徑
     const cardImages = {
-      " 狙擊手": "/static/images/jaspor.jpeg",
-      " 贈禮者": "/static/images/larry.jpeg"
+      " 壽星": "/static/images/minatest.png",
+      " 小丑": "/static/images/circletest.png",
+      " 贈禮者": "/static/images/larrytest.jpg",
+      "️ 偵探": "/static/images/edwardtest.png",
+      " 守護者": "/static/images/arwentest.png",
+      " 狙擊手": "/static/images/jasportest.jpg"
     };
+    const roleDisplayNames = {
+      " 壽星": "斬魂米娜",
+      " 小丑": "海賊王",
+      " 贈禮者": "假純愛戰士",
+      "️ 偵探": "小菊獸",
+      " 守護者": "烈焰雯の魂",
+      " 狙擊手": "祖濕爺"
+    };
+    const cardEffects = {
+      " 壽星": "偷看目標 + 對該目標本回合你的第一張攻擊額外 -1",
+      " 小丑": "目標 -2，自己 -1（被斬魂米娜標記則至多 -3）",
+      " 贈禮者": "A: 自 +1、目標 -1；B: 兩個不同目標各 -1（不自補）",
+      "️ 偵探": "公開目標一張牌，並強制其丟1張或 -1 分（5秒）",
+      " 守護者": "下次針對自己的攻擊無效，反擊；擋祖濕爺反擊 -2",
+      " 狙擊手": "目標 -3、自己 -1；目標分數>80 時改 -2"
+    };
+    const cardTypes = {
+      " 壽星": "技能卡",
+      " 小丑": "攻擊卡",
+      " 贈禮者": "攻擊卡",
+      "️ 偵探": "技能卡",
+      " 守護者": "防禦卡",
+      " 狙擊手": "攻擊卡"
+    };
+    const cardCosts = { " 壽星": 1, " 小丑": 2, " 贈禮者": 1, "️ 偵探": 1, " 守護者": 1, " 狙擊手": 3 };
 
-    // 連線狀態
-    socket.on('connect', function() {
-      document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-wifi"></i> ✅ 已連線';
-      document.getElementById('connectionStatus').className = 'connection-status connected';
+    window.addEventListener('load', async () => {
+      try {
+        const res = await fetch('/state');
+        const state = await res.json();
+        handleGameState(state);
+      } catch {}
+    });
+    window.addEventListener('resize', () => layoutHand());
+
+    socket.on('connect', () => updateConnectionStatus(true));
+    socket.on('disconnect', () => updateConnectionStatus(false));
+    socket.on('game_started', (d) => {
+      showNotification(d.message, 'success');
+      document.getElementById('waitingArea').classList.remove('show');
+      document.getElementById('gameArea').classList.add('show');
+    });
+    socket.on('game_state', (state) => handleGameState(state));
+    socket.on('my_cards', (data) => {
+      myHandCards = data.cards || [];
+      displayMyCards(myHandCards);
+    });
+    socket.on('player_joined', (d) => showNotification(`${d.player} 加入了遊戲 (${d.total_players}/6)`, 'success'));
+    socket.on('player_left', (d) => showNotification(`${d.player} 離開了遊戲`, 'warning'));
+    socket.on('error', (d) => showNotification(d.message, 'error'));
+
+    // 拆穿
+    socket.on('bluff_challenge', onChallengePrompt);
+    socket.on('bluff_result', (data) => {
+      clearChallengeTimers();
+      hideBluffConfirmation();
+
+      const info = lastPrompt || lastAction;
+      if (info) {
+        const succeeded = data && data.message && (data.message.includes('行動生效') || data.message.includes('效果生效'));
+        triggerCardFX(info.attacker, info.target, info.role, succeeded);
+      }
+      lastPrompt = null; lastAction = null;
+
+      showNotification(data.message, data.success ? 'success' : 'error');
     });
 
-    socket.on('disconnect', function() {
-      document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-wifi-slash"></i> ❌ 連線中斷';
-      document.getElementById('connectionStatus').className = 'connection-status disconnected';
+    // 偵探強制選擇
+    socket.on('force_choice', (data) => {
+      openForceChoiceModal(data.timeout_ms || 5000);
     });
 
-    // 加入遊戲
-    socket.on('player_joined', function(data) {
-      console.log('玩家加入:', data.player);
-      updateGameState();
-    });
-
-    // 玩家離開
-    socket.on('player_left', function(data) {
-      console.log('玩家離開:', data.player);
-      updateGameState();
-    });
-
-    // 遊戲開始
-    socket.on('game_started', function(data) {
-      console.log('遊戲開始:', data.message);
-      document.getElementById('startButton').style.display = 'none';
-      loadMyCards();
-    });
-
-    // 遊戲狀態更新
-    socket.on('game_state', function(data) {
-      console.log('遊戲狀態更新:', data);
-      gameData = data;
-      updateGameState();
-      displayLogs(data.logs);
-      updateTurnIndicator(data.current_turn);
-    });
-
-    // 我的卡片
-    socket.on('my_cards', function(data) {
-      console.log('我的卡片:', data.cards);
-      myCards = data.cards;
-      displayMyCards();
-    });
-
-    // 錯誤處理
-    socket.on('error', function(data) {
-      showNotification(data.message, 'error');
-    });
-
-    // 顯示通知
-    function showNotification(message, type = 'info') {
-      const notification = document.createElement('div');
-      notification.className = `connection-status ${type === 'error' ? 'disconnected' : 'connected'}`;
-      notification.innerHTML = `<i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i> ${message}`;
-      notification.style.position = 'fixed';
-      notification.style.top = '100px';
-      notification.style.right = '20px';
-      notification.style.zIndex = '1000';
-      notification.style.maxWidth = '300px';
-      
-      document.body.appendChild(notification);
-      
-      setTimeout(() => {
-        notification.remove();
-      }, 3000);
+    function onChallengePrompt(data) {
+      if (!data || data.target !== currentPlayer) return;
+      pendingPrompt = data;
+      lastPrompt = { attacker: data.player, role: data.role, target: data.target };
+      showBluffConfirmation(data);
+      startChallengeCountdown(typeof data.timeout_ms === 'number' ? data.timeout_ms : 5000);
     }
 
-    // 加入遊戲
+    function startChallengeCountdown(ms) {
+      clearChallengeTimers();
+      const timerEl = document.getElementById('bluffTimer');
+      let remain = ms;
+      timerEl.textContent = (remain / 1000).toFixed(1);
+      countdownInterval = setInterval(() => {
+        remain -= 100;
+        if (remain < 0) remain = 0;
+        timerEl.textContent = (remain / 1000).toFixed(1);
+      }, 100);
+      countdownTimeout = setTimeout(() => { notCallBluff(); }, ms);
+    }
+    function clearChallengeTimers() {
+      if (countdownInterval) clearInterval(countdownInterval);
+      if (countdownTimeout) clearTimeout(countdownTimeout);
+      countdownInterval = null; countdownTimeout = null;
+    }
+
+    function handleGameState(state) {
+      if (!state) return;
+      currentGameState = state;
+      renderWaitingArea(state);
+      updateTurnIndicator(state.current_turn);
+
+      const me = state.players ? state.players[currentPlayer] : null;
+      updatePlayerInfo(me);
+      updateEnemiesInfo(state.players || {}, state.current_turn);
+      displayLogs(state.logs || []);
+
+      if (state.game_started && currentPlayer) {
+        socket.emit('get_my_cards', { player: currentPlayer });
+        document.getElementById('openBluffButton').style.display =
+          state.current_turn === currentPlayer ? 'inline-block' : 'none';
+      }
+
+      // 管理員工具顯示
+      const isAdmin = (currentPlayer || '').toLowerCase() === 'admin';
+      const adminTools = document.getElementById('adminTools');
+      if (adminTools) adminTools.style.display = isAdmin ? 'block' : 'none';
+
+      requestAnimationFrame(layoutHand);
+    }
+
+    function updateConnectionStatus(connected) {
+      const status = document.getElementById('connectionStatus');
+      status.className = 'connection-status ' + (connected ? 'connected' : 'disconnected');
+      status.innerHTML = `<i class="fas fa-wifi"></i> ${connected ? '已連線' : '連線中...'}`;
+    }
+
     function joinGame() {
-      const playerName = document.getElementById('playerName').value.trim();
-      if (!playerName) {
-        showNotification('請輸入冒險者名稱', 'error');
-        return;
-      }
-      
-      myPlayerName = playerName;
-      document.getElementById('playerNameDisplay').textContent = playerName;
-      document.getElementById('playerCharacterName').textContent = playerName;
+      const playerName = document.getElementById('playerNameInput').value.trim();
+      if (!playerName) return showNotification('請輸入玩家名稱', 'error');
+      currentPlayer = playerName;
       socket.emit('join_game', { player_name: playerName });
-      
-      // 隱藏加入表單，顯示遊戲區域
-      document.getElementById('joinForm').classList.add('hidden');
-      document.getElementById('gameArea').classList.remove('hidden');
+      document.getElementById('joinForm').style.display = 'none';
+      document.getElementById('waitingArea').classList.add('show');
     }
+    function startGame() { socket.emit('start_game'); }
 
-    // 開始遊戲
-    function startGame() {
-      socket.emit('start_game');
-    }
-
-    // 載入我的卡片
-    function loadMyCards() {
-      if (myPlayerName) {
-        socket.emit('get_my_cards', { player: myPlayerName });
-      }
-    }
-
-    // 更新遊戲狀態
-    function updateGameState() {
-      if (!gameData) return;
-      
-      // 更新玩家角色信息
-      if (myPlayerName && gameData.players[myPlayerName]) {
-        const playerInfo = gameData.players[myPlayerName];
-        document.getElementById('playerCharacterName').textContent = myPlayerName;
-        document.getElementById('playerCharacterHealth').textContent = `${playerInfo.score}/100`;
-        document.getElementById('playerCharacterCards').textContent = `${playerInfo.roles.length} 張手牌`;
-        document.getElementById('playerHealth').textContent = `${playerInfo.score}/100`;
-        
-        // 更新玩家角色狀態
-        const playerCharacter = document.getElementById('playerCharacter');
-        if (gameData.current_turn === myPlayerName) {
-          playerCharacter.classList.add('current-turn');
-        } else {
-          playerCharacter.classList.remove('current-turn');
-        }
-      }
-      
-      // 更新敵人區域 - 顯示其他玩家
-      updateEnemyPlayers();
-      
-      // 更新目標選項
-      updateTargetOptions();
-      
-      // 顯示開始按鈕
-      if (!gameData.game_started && Object.keys(gameData.players).length >= 2) {
-        document.getElementById('startButton').style.display = 'inline-block';
-      }
-    }
-
-    // 更新敵人玩家顯示
-    function updateEnemyPlayers() {
-      const enemyPlayersDiv = document.getElementById('enemyPlayers');
-      let html = "";
-      
-      if (gameData) {
-        for (const [playerName, playerInfo] of Object.entries(gameData.players)) {
-          if (playerName !== myPlayerName) {
-            const isCurrentTurn = playerName === gameData.current_turn;
-            const avatars = ['', '🧌', '', '', '', '', '', '👽'];
-            const randomAvatar = avatars[playerName.length % avatars.length];
-            
-            html += `
-              <div class="enemy-player ${isCurrentTurn ? 'current-turn' : ''}">
-                <div class="enemy-avatar">${randomAvatar}</div>
-                <div class="enemy-name">${playerName}</div>
-                <div class="enemy-health">${playerInfo.score}/100</div>
-                <div class="enemy-cards">${playerInfo.roles.length} 張手牌</div>
-                ${isCurrentTurn ? '<div class="enemy-status">⚔️</div>' : ''}
-              </div>
-            `;
-          }
-        }
-      }
-      
-      enemyPlayersDiv.innerHTML = html;
-    }
-
-    // 更新目標選項
-    function updateTargetOptions() {
-      const targetSelect = document.getElementById('target');
-      targetSelect.innerHTML = '<option value="">無目標</option>';
-      
-      if (gameData) {
-        for (const player of Object.keys(gameData.players)) {
-          if (player !== myPlayerName) {
-            targetSelect.innerHTML += `<option value="${player}">${player}</option>`;
-          }
-        }
-      }
-    }
-
-    // 顯示我的卡片
-    function displayMyCards() {
-      const myCardsArea = document.getElementById('myCardsArea');
-      const myCardsDiv = document.getElementById('myCards');
-      
-      if (myCards.length > 0) {
-        myCardsArea.classList.add('show');
-        let html = "";
-        
-        myCards.forEach((card, index) => {
-          const hasImage = cardImages[card];
-          html += `
-            <div class="card" onclick="selectCard('${card}', this)" oncontextmenu="showCardModal('${card}', event)" data-role="${card}">
-              <div class="card-cost">1</div>
-              ${hasImage ? `<img src="${hasImage}" alt="${card}" class="card-image">` : ''}
-              <div class="card-name">${card}</div>
-              <div class="card-type">技能</div>
-            </div>
-          `;
-        });
-        
-        myCardsDiv.innerHTML = html;
-      } else {
-        myCardsArea.classList.remove('show');
-      }
-    }
-
-    // 選擇卡片
-    function selectCard(role, element) {
-      // 移除所有選中狀態
-      document.querySelectorAll('.card').forEach(card => {
-        card.classList.remove('selected');
+    function renderWaitingArea(state) {
+      const list = document.getElementById('playersList');
+      list.innerHTML = '';
+      const players = Object.keys(state.players || {});
+      players.forEach(name => {
+        const div = document.createElement('div');
+        div.className = 'player-item';
+        div.textContent = name;
+        list.appendChild(div);
       });
-      
-      // 選中當前卡片
-      element.classList.add('selected');
-      selectedCard = role;
-      
-      console.log("選擇卡片:", role);
+      const btn = document.getElementById('startGameButton');
+      btn.disabled = players.length < 2;
+      if (state.game_started) {
+        document.getElementById('waitingArea').classList.remove('show');
+        document.getElementById('gameArea').classList.add('show');
+      }
     }
 
-    // 顯示卡片放大模態框
-    function showCardModal(role, event) {
-      event.preventDefault(); // 防止右鍵菜單
-      
-      const modal = document.getElementById('cardModal');
-      const modalImage = document.getElementById('modalCardImage');
-      const modalName = document.getElementById('modalCardName');
-      const modalType = document.getElementById('modalCardType');
-      const modalCost = document.getElementById('modalCardCost');
-      
-      // 設置模態框內容
-      modalName.textContent = role;
-      modalType.textContent = '技能';
-      modalCost.textContent = '1';
-      
-      // 設置圖片
-      const hasImage = cardImages[role];
-      if (hasImage) {
-        modalImage.src = hasImage;
-        modalImage.style.display = 'block';
-      } else {
-        modalImage.style.display = 'none';
-      }
-      
-      // 顯示模態框
-      modal.classList.add('show');
-      
-      // 防止背景滾動
-      document.body.style.overflow = 'hidden';
+    function updatePlayerInfo(player) {
+      document.getElementById('playerName').textContent = currentPlayer || '玩家';
+      document.getElementById('playerScore').textContent = player ? player.score : 100;
+      document.getElementById('playerHealth').textContent = player ? player.score : 100;
+      document.getElementById('playerCardsCount').textContent = player && player.roles ? player.roles.length : 0;
     }
 
-    // 關閉卡片放大模態框
-    function closeCardModal() {
-      const modal = document.getElementById('cardModal');
-      modal.classList.remove('show');
-      
-      // 恢復背景滾動
-      document.body.style.overflow = 'auto';
+    function updateEnemiesInfo(players, currentTurn) {
+      const enemiesList = document.getElementById('enemiesList');
+      enemiesList.innerHTML = '';
+      Object.keys(players).forEach(name => {
+        if (name === currentPlayer) return;
+        const p = players[name];
+        const div = document.createElement('div');
+        if (name === currentTurn) div.className = 'player-info current-turn';
+        else div.className = 'player-info';
+        div.innerHTML = `
+          <div class="player-name"><i class="fas fa-user"></i>${name}</div>
+          <div class="player-score"><i class="fas fa-heart"></i>${p.score}</div>
+          <div class="player-cards-count"><i class="fas fa-clone"></i>${p.roles ? p.roles.length : 0}</div>
+        `;
+        enemiesList.appendChild(div);
+      });
     }
 
-    // 點擊模態框背景關閉
-    document.getElementById('cardModal').addEventListener('click', function(e) {
-      if (e.target === this) {
-        closeCardModal();
-      }
-    });
-
-    // ESC 鍵關閉模態框
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') {
-        closeCardModal();
-      }
-    });
-
-    // 更新回合指示器
     function updateTurnIndicator(currentTurn) {
-      const turnIndicator = document.getElementById('turnIndicator');
-      const currentTurnPlayer = document.getElementById('currentTurnPlayer');
-      const playButton = document.getElementById('playButton');
-      
-      if (currentTurn) {
-        turnIndicator.style.display = 'block';
-        currentTurnPlayer.textContent = currentTurn;
-        
-        // 檢查是否輪到我
-        if (currentTurn === myPlayerName) {
-          playButton.disabled = false;
-          playButton.innerHTML = '<i class="fas fa-dice"></i> 輪到你出牌！';
-          loadMyCards();
+      const turnText = document.getElementById('turnText');
+      if (currentTurn === currentPlayer) {
+        turnText.innerHTML = '<i class="fas fa-star"></i> 輪到你了！';
+        turnText.style.color = '#4caf50';
+      } else if (currentTurn) {
+        turnText.innerHTML = `<i class="fas fa-clock"></i> 等待 ${currentTurn} 行動...`;
+        turnText.style.color = '#ff6b6b';
+      } else {
+        turnText.innerHTML = '等待遊戲開始...';
+        turnText.style.color = '#bdc3c7';
+      }
+    }
+
+    function displayMyCards(cards) {
+      const myCards = document.getElementById('myCards');
+      myCards.innerHTML = '';
+      if (!cards || cards.length === 0) {
+        myCards.innerHTML = '<div style="text-align:center;color:#7f8c8d;padding:20px;">沒有手牌</div>';
+        layoutHand();
+        return;
+      }
+      cards.forEach((card) => {
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.onclick = () => selectCard(card, div);
+        div.ondblclick = () => showCardModal(card);
+        const displayName = roleDisplayNames[card] || card;
+        const imageSrc = cardImages[card] || '';
+        const effect = cardEffects[card] || '';
+        const type = cardTypes[card] || '';
+        const cost = cardCosts[card] || 0;
+        div.innerHTML = `
+          <div class="card-cost">${cost}</div>
+          ${imageSrc ? `<img src="${imageSrc}" alt="${displayName}" class="card-image">` : ''}
+          <div class="card-name">${displayName}</div>
+          <div class="card-type">${type}</div>
+          <div class="card-effect">${effect}</div>
+        `;
+        myCards.appendChild(div);
+      });
+      layoutHand();
+    }
+
+    // 動態扇形排版
+    function layoutHand() {
+      const container = document.getElementById('myCards');
+      if (!container) return;
+      const cards = Array.from(container.querySelectorAll('.card'));
+      const n = cards.length;
+      if (n === 0) return;
+
+      const maxDeg = 20, maxLift = 34, spreadFactor = 0.88;
+      const containerWidth = container.clientWidth || window.innerWidth * 0.92;
+      const baseGap = Math.min(240, Math.max(120, containerWidth / Math.max(3, n) * spreadFactor));
+
+      cards.forEach((card, idx) => {
+        const t = (n === 1) ? 0.5 : idx / (n - 1);
+        const centerBias = (t - 0.5) * 2;
+        const angle = centerBias * maxDeg;
+        const lift = (1 - Math.abs(centerBias)) * maxLift;
+        const shiftX = centerBias * baseGap;
+        card.style.setProperty('--pose', `translateX(${shiftX}px) translateY(${-lift}px) rotate(${angle}deg)`);
+        card.style.zIndex = String(100 + idx);
+      });
+    }
+
+    function selectCard(card, element) {
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+      element.classList.add('selected');
+      selectedCard = card;
+      showTargetSelection();
+    }
+
+    function showTargetSelection() {
+      if (!currentGameState) return;
+      const targetSel = document.getElementById('targetSelection');
+      const targetSelect = document.getElementById('targetSelect');
+      const giftBox = document.getElementById('giftModeBox');
+      const giftSecondRow = document.getElementById('giftSecondTargetRow');
+      const giftSecondSelect = document.getElementById('giftSecondTargetSelect');
+
+      targetSel.style.display = 'block';
+      document.getElementById('bluffSelection').style.display = 'none';
+
+      targetSelect.innerHTML = '<option value="">請選擇目標</option>';
+      giftSecondSelect.innerHTML = '<option value="">請選擇第二目標</option>';
+
+      Object.keys(currentGameState.players || {}).forEach(name => {
+        if (name !== currentPlayer) {
+          const opt = document.createElement('option');
+          opt.value = name; opt.textContent = name;
+          targetSelect.appendChild(opt);
+
+          const opt2 = document.createElement('option');
+          opt2.value = name; opt2.textContent = name;
+          giftSecondSelect.appendChild(opt2);
+        }
+      });
+
+      if (selectedCard === ' 贈禮者') {
+        giftBox.style.display = 'block';
+      } else {
+        giftBox.style.display = 'none';
+        giftSecondRow.style.display = 'none';
+      }
+
+      document.querySelectorAll('input[name="giftMode"]').forEach(r => {
+        r.onchange = () => {
+          if (r.value === 'B' && r.checked) {
+            giftSecondRow.style.display = 'inline-block';
+          } else if (r.value === 'A' && r.checked) {
+            giftSecondRow.style.display = 'none';
+          }
+          refreshPlayButtonEnable();
+        };
+      });
+
+      targetSelect.onchange = refreshPlayButtonEnable;
+      giftSecondSelect.onchange = refreshPlayButtonEnable;
+
+      function refreshPlayButtonEnable() {
+        const mode = (document.querySelector('input[name="giftMode"]:checked') || {}).value || 'A';
+        const t1 = targetSelect.value;
+        const t2 = giftSecondSelect.value;
+        let enable = !!t1;
+        if (selectedCard === ' 贈禮者' && mode === 'B') {
+          enable = enable && !!t2 && t1 !== t2;
+        }
+        document.getElementById('playButton').disabled = !enable;
+      }
+      document.getElementById('playButton').disabled = true;
+    }
+
+    function playSelectedCard() {
+      const target = document.getElementById('targetSelect').value;
+      if (!selectedCard || !target) return;
+
+      let extra = undefined;
+      if (selectedCard === ' 贈禮者') {
+        const mode = (document.querySelector('input[name="giftMode"]:checked') || {}).value || 'A';
+        if (mode === 'B') {
+          const second_target = document.getElementById('giftSecondTargetSelect').value;
+          if (!second_target || second_target === target) {
+            showNotification('模式B需要不同的第二目標', 'error');
+            return;
+          }
+          extra = { mode: 'B', second_target };
         } else {
-          playButton.disabled = true;
-          playButton.innerHTML = '<i class="fas fa-clock"></i> 等待其他玩家...';
+          extra = { mode: 'A' };
         }
       }
-    }
 
-    // 顯示遊戲日誌
-    function displayLogs(logs) {
-      const logDiv = document.getElementById("log");
-      if (logs && logs.length > 0) {
-        let html = "";
-        logs.forEach(log => {
-          html += `<div class="log-entry">⚔️ ${log}</div>`;
-        });
-        logDiv.innerHTML = html;
-        logDiv.scrollTop = logDiv.scrollHeight;
-      } else {
-        logDiv.innerHTML = "<div class='log-entry'> 等待戰鬥開始...</div>";
-      }
-    }
-
-    // 出牌
-    function playCard() {
-      const target = document.getElementById("target").value;
-
-      if (!selectedCard) {
-        showNotification("請選擇要出的卡片！", 'error');
-        return;
-      }
-
-      console.log("出牌:", { player: myPlayerName, role: selectedCard, target });
-
-      // 檢查是否需要目標
-      if ((selectedCard === " 狙擊手" || selectedCard === " 贈禮者") && !target) {
-        showNotification("此角色需要選擇目標！", 'error');
-        return;
-      }
-
-      // 發送給服務器
-      socket.emit('play_card', {
-        player: myPlayerName,
-        role: selectedCard,
-        target: target || null
-      });
-      
-      // 清除選擇
+      lastAction = { attacker: currentPlayer, role: selectedCard, target };
+      socket.emit('play_card', { player: currentPlayer, role: selectedCard, target, is_bluff: false, extra });
+      hideAllSelections();
       selectedCard = null;
-      document.querySelectorAll('.card').forEach(card => {
-        card.classList.remove('selected');
-      });
     }
 
-    // 頁面載入時初始化
-    window.onload = function() {
-      // 自動連線
-    };
+    function cancelCardSelection() { hideAllSelections(); selectedCard = null; }
+
+    function openBluffUI() {
+      if (!currentGameState) return;
+      const bluffSel = document.getElementById('bluffSelection');
+      const bluffCardSelect = document.getElementById('bluffCardSelect');
+      const bluffTargetSelect = document.getElementById('bluffTargetSelect');
+      const giftBoxB = document.getElementById('giftModeBoxBluff');
+      const giftRowB = document.getElementById('giftSecondTargetRowBluff');
+      const giftSecondB = document.getElementById('giftSecondTargetSelectBluff');
+
+      bluffSel.style.display = 'block';
+      document.getElementById('targetSelection').style.display = 'none';
+
+      bluffCardSelect.innerHTML = '<option value="">請選擇卡片</option>';
+      Object.keys(roleDisplayNames)
+        .filter(card => card !== ' 守護者')
+        .forEach(card => {
+          const opt = document.createElement('option');
+          opt.value = card; opt.textContent = roleDisplayNames[card];
+          bluffCardSelect.appendChild(opt);
+        });
+
+      bluffTargetSelect.innerHTML = '<option value="">請選擇目標</option>';
+      giftSecondB.innerHTML = '<option value="">請選擇第二目標</option>';
+      Object.keys(currentGameState.players || {}).forEach(name => {
+        if (name !== currentPlayer) {
+          const opt1 = document.createElement('option');
+          opt1.value = name; opt1.textContent = name;
+          bluffTargetSelect.appendChild(opt1);
+          const opt2 = document.createElement('option');
+          opt2.value = name; opt2.textContent = name;
+          giftSecondB.appendChild(opt2);
+        }
+      });
+
+      const refresh = () => {
+        const card = bluffCardSelect.value;
+        const t1 = bluffTargetSelect.value;
+        let ok = !!card && !!t1;
+        if (card === ' 贈禮者') {
+          giftBoxB.style.display = 'block';
+          const mode = (document.querySelector('input[name="giftModeBluff"]:checked') || {}).value || 'A';
+          if (mode === 'B') {
+            giftRowB.style.display = 'inline-block';
+            const t2 = giftSecondB.value;
+            ok = ok && !!t2 && t1 !== t2;
+          } else {
+            giftRowB.style.display = 'none';
+          }
+        } else {
+          giftBoxB.style.display = 'none';
+          giftRowB.style.display = 'none';
+        }
+        document.getElementById('confirmBluffButton').disabled = !ok;
+      };
+
+      bluffCardSelect.onchange = refresh;
+      bluffTargetSelect.onchange = refresh;
+      document.querySelectorAll('input[name="giftModeBluff"]').forEach(r => r.onchange = refresh);
+      giftSecondB.onchange = refresh;
+      refresh();
+    }
+
+    function confirmBluff() {
+      const bluffCard = document.getElementById('bluffCardSelect').value;
+      const bluffTarget = document.getElementById('bluffTargetSelect').value;
+      if (!bluffCard || !bluffTarget) return;
+
+      let extra = undefined;
+      if (bluffCard === ' 贈禮者') {
+        const mode = (document.querySelector('input[name="giftModeBluff"]:checked') || {}).value || 'A';
+        if (mode === 'B') {
+          const second_target = document.getElementById('giftSecondTargetSelectBluff').value;
+          if (!second_target || second_target === bluffTarget) {
+            showNotification('模式B需要不同的第二目標', 'error');
+            return;
+          }
+          extra = { mode: 'B', second_target };
+        } else {
+          extra = { mode: 'A' };
+        }
+      }
+
+      lastAction = { attacker: currentPlayer, role: bluffCard, target: bluffTarget };
+      socket.emit('play_card', {
+        player: currentPlayer,
+        role: bluffCard,
+        target: bluffTarget,
+        is_bluff: true,
+        extra
+      });
+      hideAllSelections();
+      showNotification(`已對 ${bluffTarget} 發動 ${roleDisplayNames[bluffCard] || bluffCard}（虛張聲勢）`, 'warning');
+    }
+    function cancelBluff() { hideAllSelections(); }
+
+    function showBluffConfirmation(data) {
+      const box = document.getElementById('bluffConfirmation');
+      const text = document.getElementById('bluffConfirmationText');
+      const roleName = roleDisplayNames[data.role] || data.role;
+      text.textContent = `${data.player} 對你使用了 ${roleName}，是否揭穿虛張聲勢？`;
+      box.style.display = 'block';
+    }
+    function hideBluffConfirmation() {
+      clearChallengeTimers();
+      document.getElementById('bluffConfirmation').style.display = 'none';
+    }
+
+    function callBluff() {
+      if (!pendingPrompt) return;
+      socket.emit('call_bluff', { prompt_id: pendingPrompt.prompt_id, player: currentPlayer });
+      hideBluffConfirmation();
+      pendingPrompt = null;
+    }
+    function notCallBluff() {
+      if (!pendingPrompt) return;
+      socket.emit('not_call_bluff', { prompt_id: pendingPrompt.prompt_id, player: currentPlayer });
+      hideBluffConfirmation();
+      pendingPrompt = null;
+    }
+
+    function hideAllSelections() {
+      document.getElementById('targetSelection').style.display = 'none';
+      document.getElementById('bluffSelection').style.display = 'none';
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+    }
+
+    function displayLogs(logs) {
+      const box = document.getElementById('gameLogs');
+      box.innerHTML = '';
+      (logs || []).forEach(line => {
+        const d = document.createElement('div');
+        d.className = 'log-entry';
+        d.textContent = line;
+        box.appendChild(d);
+      });
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // 卡片放大
+    function showCardModal(card) {
+      const modal = document.getElementById('cardModal');
+      const displayName = roleDisplayNames[card] || card;
+      document.getElementById('modalCardImage').src = cardImages[card] || '';
+      document.getElementById('modalCardImage').alt = displayName;
+      document.getElementById('modalCardName').textContent = displayName;
+      document.getElementById('modalCardType').textContent = cardTypes[card] || '';
+      document.getElementById('modalCardEffect').textContent = cardEffects[card] || '';
+      modal.style.display = 'block';
+    }
+    function closeCardModal() { document.getElementById('cardModal').style.display = 'none'; }
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCardModal(); });
+    document.getElementById('cardModal').addEventListener('click', (e) => { if (e.target.id === 'cardModal') closeCardModal(); });
+
+    function showNotification(msg, type='success') {
+      const div = document.createElement('div');
+      div.className = 'notification ' + type;
+      div.textContent = msg;
+      document.body.appendChild(div);
+      setTimeout(() => { div.remove(); }, 2500);
+    }
+
+    // 結束回合 / 棄1抽1
+    function openEndTurnModal() {
+      if (!currentGameState || currentGameState.current_turn !== currentPlayer) {
+        return showNotification('現在不是你的回合', 'error');
+      }
+      const sel = document.getElementById('discardSelect');
+      sel.innerHTML = '<option value="">（不丟牌）</option>';
+      (myHandCards || []).forEach((c) => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = `${roleDisplayNames[c] || c}`;
+        sel.appendChild(opt);
+      });
+      document.getElementById('endTurnModal').style.display = 'block';
+    }
+    function closeEndTurnModal() {
+      document.getElementById('endTurnModal').style.display = 'none';
+    }
+    function submitEndTurn(withDiscard) {
+      const discard_role = withDiscard ? document.getElementById('discardSelect').value : '';
+      socket.emit('end_turn_discard_draw', { player: currentPlayer, discard_role });
+      closeEndTurnModal();
+    }
+
+    // 偵探 強制選擇
+    function openForceChoiceModal(timeoutMs) {
+      const sel = document.getElementById('forceDiscardSelect');
+      sel.innerHTML = '<option value="">選擇要丟的手牌</option>';
+      (myHandCards || []).forEach((c) => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = `${roleDisplayNames[c] || c}`;
+        sel.appendChild(opt);
+      });
+
+      const modal = document.getElementById('forceChoiceModal');
+      modal.style.display = 'block';
+
+      clearForceTimers();
+      const timerEl = document.getElementById('forceTimer');
+      let remain = timeoutMs || 5000;
+      timerEl.textContent = (remain/1000).toFixed(1);
+      forceInterval = setInterval(() => {
+        remain -= 100;
+        if (remain < 0) remain = 0;
+        timerEl.textContent = (remain/1000).toFixed(1);
+      }, 100);
+      forceTimeout = setTimeout(() => {
+        closeForceChoiceModal();
+      }, timeoutMs || 5000);
+    }
+    function closeForceChoiceModal() {
+      clearForceTimers();
+      document.getElementById('forceChoiceModal').style.display = 'none';
+    }
+    function clearForceTimers() {
+      if (forceInterval) clearInterval(forceInterval);
+      if (forceTimeout) clearTimeout(forceTimeout);
+      forceInterval = null; forceTimeout = null;
+    }
+    function answerForceChoice(choice) {
+      let payload = { player: currentPlayer, choice };
+      if (choice === 'discard_one') {
+        const pick = document.getElementById('forceDiscardSelect').value;
+        if (!pick) {
+          return showNotification('請先選擇要丟的手牌', 'error');
+        }
+        payload.discard_role = pick;
+      }
+      socket.emit('force_choice_answer', payload);
+      closeForceChoiceModal();
+    }
+
+    // ====== 動畫輔助 ======
+    function findPanelByName(name){
+      if (!name) return null;
+      if (name === currentPlayer) return document.getElementById('playerInfo');
+      const items = Array.from(document.querySelectorAll('#enemiesList .player-info'));
+      for (const el of items){
+        const txt = el.querySelector('.player-name')?.textContent?.trim() || '';
+        if (txt === name) return el;
+      }
+      return null;
+    }
+    function centerOf(el){
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width/2, y: r.top + r.height/2 };
+    }
+    function addShake(panel){
+      if (!panel) return;
+      panel.classList.add('fx-shake');
+      setTimeout(()=> panel.classList.remove('fx-shake'), 340);
+    }
+    function triggerCardFX(attackerName, targetName, role, succeeded){
+      const fx = document.getElementById('fxLayer');
+      const atkPanel = findPanelByName(attackerName);
+      const tgtPanel = findPanelByName(targetName);
+      if (!fx || !atkPanel) return;
+
+      const start = centerOf(atkPanel);
+      const end = tgtPanel ? centerOf(tgtPanel) : { x: window.innerWidth/2, y: window.innerHeight*0.35 };
+
+      if (succeeded === false){
+        const smoke = document.createElement('div');
+        smoke.className = 'fx-smoke';
+        smoke.style.left = `${start.x}px`; smoke.style.top = `${start.y}px`;
+        fx.appendChild(smoke);
+        setTimeout(()=> smoke.remove(), 600);
+        addShake(atkPanel);
+        return;
+      }
+
+      const ball = document.createElement('div');
+      ball.className = 'fx-projectile';
+      if (role === ' 狙擊手') ball.classList.add('snipe');
+      if (role === ' 贈禮者') ball.classList.add('gift');
+      if (role === ' 小丑') ball.classList.add('clown');
+
+      ball.style.left = `${start.x}px`; ball.style.top = `${start.y}px`;
+      fx.appendChild(ball);
+
+      requestAnimationFrame(()=>{
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        ball.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+      });
+
+      setTimeout(()=>{
+        ball.remove();
+        const hit = document.createElement('div');
+        hit.className = 'fx-hit';
+        hit.style.left = `${end.x}px`; hit.style.top = `${end.y}px`;
+        fx.appendChild(hit);
+        setTimeout(()=> hit.remove(), 520);
+
+        if (tgtPanel){
+          addShake(tgtPanel);
+        }
+      }, 470);
+    }
+
+    // 管理員
+    function adminResetGame() {
+      if (!confirm('確定要重啟遊戲嗎？所有進行中行動將被取消、並重新發牌。')) return;
+      socket.emit('admin_reset_game', { player: currentPlayer });
+    }
   </script>
 </body>
 </html>

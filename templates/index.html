@@ -1,10 +1,10 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="zh">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <title>壽星陰謀卡牌遊戲 - 地牢戰鬥版</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -87,7 +87,6 @@
     .player-score { color: #ff6b6b; font-size: 12px; font-weight: bold; display: flex; align-items: center; gap: 4px; }
     .player-cards-count { color: #3498db; font-size: 11px; margin-left: 8px; }
 
-    /* 手牌與動態排版 */
     .cards-area { margin-top: 6px; position: relative; }
     .cards-title { text-align: center; font-size: 22px; margin-bottom: 10px; color: #4caf50; }
 
@@ -113,7 +112,6 @@
     }
     .card:hover { transform: var(--pose, none) translateY(-28px) scale(1.08); box-shadow: 0 18px 40px rgba(52,152,219,0.4); border-color: #e74c3c; z-index: 10; }
     .card.selected { border-color: #e74c3c; box-shadow: 0 0 24px rgba(231,76,60,0.6); transform: var(--pose, none) translateY(-20px) scale(1.06); z-index: 10; }
-    .card:nth-child(1), .card:nth-child(2), .card:nth-child(3), .card:nth-child(4) { transform: var(--pose, none); }
 
     .card-cost {
       position: absolute; top: 10px; right: 10px; background: #e74c3c; color: white; width: 32px; height: 32px; border-radius: 50%;
@@ -176,15 +174,36 @@
     .modal-card-effect { font-size: 14px; color: #95a5a6; line-height: 1.4; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; }
 
     @media (max-width: 1200px) { .battle-area { grid-template-columns: 1fr 1fr; } }
+
     @media (max-width: 768px) {
       .battle-area { grid-template-columns: 1fr; }
-      .hand-container { height: 38vh; }
-      .hand-background { width: 92vw; height: 26vh; }
-      .card { width: 150px; height: 225px; }
-      .card-image { height: 140px; }
-      .card-name { font-size: 12px; }
-      .card-type { font-size: 10px; }
-      .card-effect { font-size: 9px; }
+      .turn-indicator h3 { font-size: 20px; }
+
+      .join-form, .waiting-area { padding: 24px; margin: 20px auto; }
+      .join-form input, .join-form button { font-size: 18px; padding: 14px; }
+
+      .start-game-button, #endTurnButton, .bluff-button, .target-selection button {
+        font-size: 18px; padding: 12px 16px; border-radius: 12px;
+      }
+      .target-selection select, #bluffCardSelect, #bluffTargetSelect {
+        font-size: 18px; padding: 10px 12px; border-radius: 10px;
+      }
+
+      .hand-container { height: 44vh; }
+      .hand-background { width: 92vw; height: 28vh; }
+
+      .cards-in-hand { gap: 10px; padding: 0 8px; }
+
+      .card {
+        width: 44vw; height: 62vw; max-width: 320px; max-height: 460px;
+        border-radius: 14px;
+      }
+      .card-image { height: 55%; object-fit: contain; }
+      .card-name { font-size: 14px; }
+      .card-type { font-size: 12px; }
+      .card-effect { font-size: 12px; line-height: 1.3; }
+
+      .modal-content { width: 92vw; max-width: 92vw; }
     }
 
     .notification {
@@ -195,7 +214,6 @@
     .notification.warning { background: rgba(255,193,7,0.9); color: #333; }
     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-    /* 戰鬥特效層與動畫 */
     #fxLayer{ position:fixed; inset:0; pointer-events:none; z-index:2000; }
     .fx-projectile{ position:fixed; width:22px; height:22px; border-radius:50%;
       background: radial-gradient(circle at 30% 30%, #fff, #ff6b6b 40%, rgba(255,107,107,0.1) 70%);
@@ -215,7 +233,6 @@
     .fx-shake{ animation: fx-shake 320ms ease-in-out 0s 1; }
     @keyframes fx-shake{ 0%,100%{ transform:translateX(0); } 20%{ transform:translateX(-6px); } 40%{ transform:translateX(6px); } 60%{ transform:translateX(-4px); } 80%{ transform:translateX(4px); } }
     .fx-smoke{ position:fixed; width:14px; height:14px; transform:translate(-50%,-50%); background: radial-gradient(circle, rgba(255,255,255,.9), rgba(0,0,0,0) 60%); filter: blur(1px); animation: fx-smoke-fade 550ms ease-out forwards; }
-    @keyframes fx-smoke-fade{ 0%{ opacity:.9; transform:translate(-50%,-50%) scale(.6); } 100%{ opacity:0; transform:translate(-50%,-50%) scale(2.0); } }
 
     .gift-mode label { cursor: pointer; }
   </style>
@@ -243,7 +260,14 @@
     </div>
 
     <div id="gameArea" class="game-area">
-      <div class="turn-indicator"><h3 id="turnText">等待遊戲開始...</h3></div>
+      <div class="turn-indicator">
+        <h3 id="turnText">等待遊戲開始...</h3>
+        <div style="display:flex;gap:10px;justify-content:center;align-items:center;margin-top:6px;">
+          <span id="roundInfo" style="color:#f1c40f;font-weight:bold;">第 1/3 輪</span>
+          <span style="opacity:.6;">|</span>
+          <span id="timerInfo" style="color:#2ecc71;font-weight:bold;">剩餘 30:00</span>
+        </div>
+      </div>
 
       <div class="battle-area">
         <div class="player-side">
@@ -284,7 +308,6 @@
           <h4>選擇目標玩家：</h4>
           <select id="targetSelect"><option value="">請選擇目標</option></select>
 
-          <!-- 贈禮者模式切換（實打） -->
           <div id="giftModeBox" class="gift-mode" style="display:none; margin-top:10px;">
             <div style="margin-bottom:8px; color:#bdc3c7;">選擇贈禮者模式：</div>
             <label style="margin-right:10px;">
@@ -312,9 +335,8 @@
           <select id="bluffCardSelect"><option value="">請選擇卡片</option></select>
           <select id="bluffTargetSelect"><option value="">請選擇目標</option></select>
 
-          <!-- 贈禮者（虛張）模式切換 -->
           <div id="giftModeBoxBluff" class="gift-mode" style="display:none; margin-top:10px;">
-            <div style="margin-bottom:8px; color:#bdc3c7;">選擇贈禮者模式（虛張）：</div>
+            <div style="margin-bottom:8px; color:#bdc3c7;">選擇贯禮者模式（虛張）：</div>
             <label style="margin-right:10px;">
               <input type="radio" name="giftModeBluff" value="A" checked> 模式A：自己 +1，目標 -1
             </label>
@@ -362,7 +384,20 @@
     </div>
   </div>
 
-  <!-- 棄1抽1 彈窗 -->
+  <!-- 遊戲結算 -->
+  <div id="gameOverModal" class="modal">
+    <div class="modal-content" style="max-width:520px;">
+      <span class="modal-close" onclick="closeGameOverModal()">&times;</span>
+      <h3 style="color:#ecf0f1;margin-bottom:12px;">遊戲結束</h3>
+      <div id="gameOverReason" style="color:#bdc3c7;margin-bottom:10px;"></div>
+      <div id="gameOverList" style="display:grid;gap:8px;"></div>
+      <div style="text-align:right;margin-top:12px;">
+        <button class="start-game-button" onclick="closeGameOverModal()">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 棄1抽1 -->
   <div id="endTurnModal" class="modal">
     <div class="modal-content" style="max-width:460px;">
       <span class="modal-close" onclick="closeEndTurnModal()">&times;</span>
@@ -380,7 +415,7 @@
     </div>
   </div>
 
-  <!-- 偵探 強制選擇 彈窗 -->
+  <!-- 偵探 強制選擇 -->
   <div id="forceChoiceModal" class="modal">
     <div class="modal-content" style="max-width:460px;">
       <span class="modal-close" onclick="closeForceChoiceModal()">&times;</span>
@@ -401,7 +436,13 @@
   <div id="fxLayer"></div>
 
   <script>
-    const socket = io();
+    const socket = io(window.location.origin, {
+      path: '/socket.io/',
+      transports: ['websocket','polling'],
+      timeout: 20000,
+      withCredentials: true,
+    });
+
     let currentPlayer = '';
     let currentGameState = null;
     let selectedCard = null;
@@ -412,6 +453,7 @@
     let lastPrompt = null;
     let myHandCards = [];
     let forceInterval = null, forceTimeout = null;
+    let timerTick = null;
 
     const cardImages = {
       " 壽星": "/static/images/minatest.png",
@@ -458,6 +500,12 @@
 
     socket.on('connect', () => updateConnectionStatus(true));
     socket.on('disconnect', () => updateConnectionStatus(false));
+    socket.on('connect_error', (err) => {
+      console.error('connect_error', err);
+      updateConnectionStatus(false);
+    });
+    socket.on('reconnect_attempt', () => updateConnectionStatus(false));
+
     socket.on('game_started', (d) => {
       showNotification(d.message, 'success');
       document.getElementById('waitingArea').classList.remove('show');
@@ -471,6 +519,32 @@
     socket.on('player_joined', (d) => showNotification(`${d.player} 加入了遊戲 (${d.total_players}/6)`, 'success'));
     socket.on('player_left', (d) => showNotification(`${d.player} 離開了遊戲`, 'warning'));
     socket.on('error', (d) => showNotification(d.message, 'error'));
+
+    socket.on('game_over', (d) => {
+      stopClientTimer();
+      const modal = document.getElementById('gameOverModal');
+      document.getElementById('gameOverReason').textContent = `原因：${d.reason || '條件達成'}`;
+      const box = document.getElementById('gameOverList');
+      box.innerHTML = '';
+      (d.results || []).forEach((r, idx) => {
+        const div = document.createElement('div');
+        div.style.background = 'rgba(0,0,0,.5)';
+        div.style.border = '1px solid #34495e';
+        div.style.borderRadius = '10px';
+        div.style.padding = '10px';
+        div.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-weight:bold;">#${idx+1} ${r.player}</div>
+            <div style="color:#e74c3c;font-weight:bold;">分數：${r.score}</div>
+          </div>
+          <div style="margin-top:6px;font-size:13px;opacity:.9;">
+            成功拆穿：${r.call_bluff_success}　成功虛張：${r.bluff_success}　剩餘手牌：${r.hand_count}
+          </div>
+        `;
+        box.appendChild(div);
+      });
+      modal.style.display = 'block';
+    });
 
     // 拆穿
     socket.on('bluff_challenge', onChallengePrompt);
@@ -488,7 +562,7 @@
       showNotification(data.message, data.success ? 'success' : 'error');
     });
 
-    // 偵探強制選擇
+    // 偵探強制選擇（前端倒數顯示）
     socket.on('force_choice', (data) => {
       openForceChoiceModal(data.timeout_ms || 5000);
     });
@@ -501,29 +575,14 @@
       startChallengeCountdown(typeof data.timeout_ms === 'number' ? data.timeout_ms : 5000);
     }
 
-    function startChallengeCountdown(ms) {
-      clearChallengeTimers();
-      const timerEl = document.getElementById('bluffTimer');
-      let remain = ms;
-      timerEl.textContent = (remain / 1000).toFixed(1);
-      countdownInterval = setInterval(() => {
-        remain -= 100;
-        if (remain < 0) remain = 0;
-        timerEl.textContent = (remain / 1000).toFixed(1);
-      }, 100);
-      countdownTimeout = setTimeout(() => { notCallBluff(); }, ms);
-    }
-    function clearChallengeTimers() {
-      if (countdownInterval) clearInterval(countdownInterval);
-      if (countdownTimeout) clearTimeout(countdownTimeout);
-      countdownInterval = null; countdownTimeout = null;
-    }
-
+    // 狀態處理與回合/倒數
     function handleGameState(state) {
       if (!state) return;
       currentGameState = state;
+
       renderWaitingArea(state);
       updateTurnIndicator(state.current_turn);
+      updateRoundAndTimer(state);
 
       const me = state.players ? state.players[currentPlayer] : null;
       updatePlayerInfo(me);
@@ -536,7 +595,6 @@
           state.current_turn === currentPlayer ? 'inline-block' : 'none';
       }
 
-      // 管理員工具顯示
       const isAdmin = (currentPlayer || '').toLowerCase() === 'admin';
       const adminTools = document.getElementById('adminTools');
       if (adminTools) adminTools.style.display = isAdmin ? 'block' : 'none';
@@ -544,12 +602,41 @@
       requestAnimationFrame(layoutHand);
     }
 
+    function updateRoundAndTimer(state) {
+      const rEl = document.getElementById('roundInfo');
+      const tEl = document.getElementById('timerInfo');
+      if (rEl) rEl.textContent = `第 ${state.round_number || 0}/${state.max_rounds || 3} 輪`;
+      if (tEl) startClientTimer(state.time_remaining_ms);
+    }
+
+    function formatMMSS(ms) {
+      if (ms == null) return "--:--";
+      const sec = Math.max(0, Math.floor(ms/1000));
+      const m = Math.floor(sec/60), s = sec%60;
+      return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+    function startClientTimer(ms) {
+      stopClientTimer();
+      const timerEl = document.getElementById('timerInfo');
+      let remain = typeof ms === 'number' ? ms : 0;
+      timerEl.textContent = `剩餘 ${formatMMSS(remain)}`;
+      timerTick = setInterval(() => {
+        remain -= 1000;
+        if (remain < 0) remain = 0;
+        timerEl.textContent = `剩餘 ${formatMMSS(remain)}`;
+      }, 1000);
+    }
+    function stopClientTimer() {
+      if (timerTick) clearInterval(timerTick);
+      timerTick = null;
+    }
+
+    // 連線與加入
     function updateConnectionStatus(connected) {
       const status = document.getElementById('connectionStatus');
       status.className = 'connection-status ' + (connected ? 'connected' : 'disconnected');
       status.innerHTML = `<i class="fas fa-wifi"></i> ${connected ? '已連線' : '連線中...'}`;
     }
-
     function joinGame() {
       const playerName = document.getElementById('playerNameInput').value.trim();
       if (!playerName) return showNotification('請輸入玩家名稱', 'error');
@@ -578,13 +665,13 @@
       }
     }
 
+    // 介面資訊
     function updatePlayerInfo(player) {
       document.getElementById('playerName').textContent = currentPlayer || '玩家';
       document.getElementById('playerScore').textContent = player ? player.score : 100;
       document.getElementById('playerHealth').textContent = player ? player.score : 100;
       document.getElementById('playerCardsCount').textContent = player && player.roles ? player.roles.length : 0;
     }
-
     function updateEnemiesInfo(players, currentTurn) {
       const enemiesList = document.getElementById('enemiesList');
       enemiesList.innerHTML = '';
@@ -602,7 +689,6 @@
         enemiesList.appendChild(div);
       });
     }
-
     function updateTurnIndicator(currentTurn) {
       const turnText = document.getElementById('turnText');
       if (currentTurn === currentPlayer) {
@@ -617,6 +703,7 @@
       }
     }
 
+    // 手牌與選擇
     function displayMyCards(cards) {
       const myCards = document.getElementById('myCards');
       myCards.innerHTML = '';
@@ -646,8 +733,6 @@
       });
       layoutHand();
     }
-
-    // 動態扇形排版
     function layoutHand() {
       const container = document.getElementById('myCards');
       if (!container) return;
@@ -655,28 +740,29 @@
       const n = cards.length;
       if (n === 0) return;
 
-      const maxDeg = 20, maxLift = 34, spreadFactor = 0.88;
-      const containerWidth = container.clientWidth || window.innerWidth * 0.92;
-      const baseGap = Math.min(240, Math.max(120, containerWidth / Math.max(3, n) * spreadFactor));
+      const isNarrow = window.matchMedia('(max-width: 768px)').matches;
+      const maxTotalAngle = isNarrow ? Math.min(50, 6 * n) : Math.min(70, 8 * n);
+      const angleStep = n > 1 ? maxTotalAngle / (n - 1) : 0;
+      const startAngle = -maxTotalAngle / 2;
+      const mid = (n - 1) / 2;
+      const baseLift = isNarrow ? 24 : 30;
+      const liftDecay = isNarrow ? 5 : 6;
+      const xSpread = isNarrow ? 8 : 10;
 
-      cards.forEach((card, idx) => {
-        const t = (n === 1) ? 0.5 : idx / (n - 1);
-        const centerBias = (t - 0.5) * 2;
-        const angle = centerBias * maxDeg;
-        const lift = (1 - Math.abs(centerBias)) * maxLift;
-        const shiftX = centerBias * baseGap;
-        card.style.setProperty('--pose', `translateX(${shiftX}px) translateY(${-lift}px) rotate(${angle}deg)`);
-        card.style.zIndex = String(100 + idx);
+      cards.forEach((card, i) => {
+        const angle = startAngle + i * angleStep;
+        const dx = (i - mid) * xSpread;
+        const lift = Math.max(0, baseLift - Math.abs(i - mid) * liftDecay);
+        card.style.setProperty('--pose', `translateX(${dx}px) translateY(${-lift}px) rotate(${angle}deg)`);
+        card.style.zIndex = String(100 + i);
       });
     }
-
     function selectCard(card, element) {
       document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
       element.classList.add('selected');
       selectedCard = card;
       showTargetSelection();
     }
-
     function showTargetSelection() {
       if (!currentGameState) return;
       const targetSel = document.getElementById('targetSelection');
@@ -736,7 +822,6 @@
       }
       document.getElementById('playButton').disabled = true;
     }
-
     function playSelectedCard() {
       const target = document.getElementById('targetSelect').value;
       if (!selectedCard || !target) return;
@@ -761,9 +846,9 @@
       hideAllSelections();
       selectedCard = null;
     }
-
     function cancelCardSelection() { hideAllSelections(); selectedCard = null; }
 
+    // 虛張
     function openBluffUI() {
       if (!currentGameState) return;
       const bluffSel = document.getElementById('bluffSelection');
@@ -825,7 +910,6 @@
       giftSecondB.onchange = refresh;
       refresh();
     }
-
     function confirmBluff() {
       const bluffCard = document.getElementById('bluffCardSelect').value;
       const bluffTarget = document.getElementById('bluffTargetSelect').value;
@@ -847,18 +931,13 @@
       }
 
       lastAction = { attacker: currentPlayer, role: bluffCard, target: bluffTarget };
-      socket.emit('play_card', {
-        player: currentPlayer,
-        role: bluffCard,
-        target: bluffTarget,
-        is_bluff: true,
-        extra
-      });
+      socket.emit('play_card', { player: currentPlayer, role: bluffCard, target: bluffTarget, is_bluff: true, extra });
       hideAllSelections();
       showNotification(`已對 ${bluffTarget} 發動 ${roleDisplayNames[bluffCard] || bluffCard}（虛張聲勢）`, 'warning');
     }
     function cancelBluff() { hideAllSelections(); }
 
+    // 拆穿提示
     function showBluffConfirmation(data) {
       const box = document.getElementById('bluffConfirmation');
       const text = document.getElementById('bluffConfirmationText');
@@ -870,7 +949,6 @@
       clearChallengeTimers();
       document.getElementById('bluffConfirmation').style.display = 'none';
     }
-
     function callBluff() {
       if (!pendingPrompt) return;
       socket.emit('call_bluff', { prompt_id: pendingPrompt.prompt_id, player: currentPlayer });
@@ -883,13 +961,30 @@
       hideBluffConfirmation();
       pendingPrompt = null;
     }
+    function startChallengeCountdown(ms) {
+      clearChallengeTimers();
+      const timerEl = document.getElementById('bluffTimer');
+      let remain = ms;
+      timerEl.textContent = (remain / 1000).toFixed(1);
+      countdownInterval = setInterval(() => {
+        remain -= 100;
+        if (remain < 0) remain = 0;
+        timerEl.textContent = (remain / 1000).toFixed(1);
+      }, 100);
+      countdownTimeout = setTimeout(() => { notCallBluff(); }, ms);
+    }
+    function clearChallengeTimers() {
+      if (countdownInterval) clearInterval(countdownInterval);
+      if (countdownTimeout) clearTimeout(countdownTimeout);
+      countdownInterval = null; countdownTimeout = null;
+    }
 
+    // 雜項
     function hideAllSelections() {
       document.getElementById('targetSelection').style.display = 'none';
       document.getElementById('bluffSelection').style.display = 'none';
       document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
     }
-
     function displayLogs(logs) {
       const box = document.getElementById('gameLogs');
       box.innerHTML = '';
@@ -917,14 +1012,6 @@
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCardModal(); });
     document.getElementById('cardModal').addEventListener('click', (e) => { if (e.target.id === 'cardModal') closeCardModal(); });
 
-    function showNotification(msg, type='success') {
-      const div = document.createElement('div');
-      div.className = 'notification ' + type;
-      div.textContent = msg;
-      document.body.appendChild(div);
-      setTimeout(() => { div.remove(); }, 2500);
-    }
-
     // 結束回合 / 棄1抽1
     function openEndTurnModal() {
       if (!currentGameState || currentGameState.current_turn !== currentPlayer) {
@@ -940,9 +1027,7 @@
       });
       document.getElementById('endTurnModal').style.display = 'block';
     }
-    function closeEndTurnModal() {
-      document.getElementById('endTurnModal').style.display = 'none';
-    }
+    function closeEndTurnModal() { document.getElementById('endTurnModal').style.display = 'none'; }
     function submitEndTurn(withDiscard) {
       const discard_role = withDiscard ? document.getElementById('discardSelect').value : '';
       socket.emit('end_turn_discard_draw', { player: currentPlayer, discard_role });
@@ -972,33 +1057,22 @@
         if (remain < 0) remain = 0;
         timerEl.textContent = (remain/1000).toFixed(1);
       }, 100);
-      forceTimeout = setTimeout(() => {
-        closeForceChoiceModal();
-      }, timeoutMs || 5000);
+      forceTimeout = setTimeout(() => { closeForceChoiceModal(); }, timeoutMs || 5000);
     }
-    function closeForceChoiceModal() {
-      clearForceTimers();
-      document.getElementById('forceChoiceModal').style.display = 'none';
-    }
-    function clearForceTimers() {
-      if (forceInterval) clearInterval(forceInterval);
-      if (forceTimeout) clearTimeout(forceTimeout);
-      forceInterval = null; forceTimeout = null;
-    }
+    function closeForceChoiceModal() { clearForceTimers(); document.getElementById('forceChoiceModal').style.display = 'none'; }
+    function clearForceTimers() { if (forceInterval) clearInterval(forceInterval); if (forceTimeout) clearTimeout(forceTimeout); forceInterval = null; forceTimeout = null; }
     function answerForceChoice(choice) {
       let payload = { player: currentPlayer, choice };
       if (choice === 'discard_one') {
         const pick = document.getElementById('forceDiscardSelect').value;
-        if (!pick) {
-          return showNotification('請先選擇要丟的手牌', 'error');
-        }
+        if (!pick) return showNotification('請先選擇要丟的手牌', 'error');
         payload.discard_role = pick;
       }
       socket.emit('force_choice_answer', payload);
       closeForceChoiceModal();
     }
 
-    // ====== 動畫輔助 ======
+    // 動畫
     function findPanelByName(name){
       if (!name) return null;
       if (name === currentPlayer) return document.getElementById('playerInfo');
@@ -1009,15 +1083,8 @@
       }
       return null;
     }
-    function centerOf(el){
-      const r = el.getBoundingClientRect();
-      return { x: r.left + r.width/2, y: r.top + r.height/2 };
-    }
-    function addShake(panel){
-      if (!panel) return;
-      panel.classList.add('fx-shake');
-      setTimeout(()=> panel.classList.remove('fx-shake'), 340);
-    }
+    function centerOf(el){ const r = el.getBoundingClientRect(); return { x: r.left + r.width/2, y: r.top + r.height/2 }; }
+    function addShake(panel){ if (!panel) return; panel.classList.add('fx-shake'); setTimeout(()=> panel.classList.remove('fx-shake'), 340); }
     function triggerCardFX(attackerName, targetName, role, succeeded){
       const fx = document.getElementById('fxLayer');
       const atkPanel = findPanelByName(attackerName);
@@ -1059,18 +1126,18 @@
         hit.style.left = `${end.x}px`; hit.style.top = `${end.y}px`;
         fx.appendChild(hit);
         setTimeout(()=> hit.remove(), 520);
-
-        if (tgtPanel){
-          addShake(tgtPanel);
-        }
+        if (tgtPanel) addShake(tgtPanel);
       }, 470);
     }
 
-    // 管理員
+    // Admin
     function adminResetGame() {
       if (!confirm('確定要重啟遊戲嗎？所有進行中行動將被取消、並重新發牌。')) return;
       socket.emit('admin_reset_game', { player: currentPlayer });
     }
+
+    // 卡片放大關閉
+    function closeGameOverModal(){ document.getElementById('gameOverModal').style.display='none'; }
   </script>
 </body>
 </html>
